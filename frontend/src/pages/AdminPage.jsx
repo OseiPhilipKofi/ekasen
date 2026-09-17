@@ -1,16 +1,22 @@
-import { useCallback } from 'react'
-import { Users, MessageSquare, WalletCards } from 'lucide-react'
-import api from '../lib/api'
-import { useApiData } from '../hooks/useApiData'
-import PageHeader from '../components/PageHeader'
-import StatCard from '../components/StatCard'
-import AdminNav from '../components/AdminNav'
+import { useCallback } from "react";
+import { Users, MessageSquare, WalletCards } from "lucide-react";
+import api from "../lib/api";
+import { useApiData } from "../hooks/useApiData";
+import PageHeader from "../components/PageHeader";
+import StatCard from "../components/StatCard";
+import AdminNav from "../components/AdminNav";
 
 export default function AdminPage() {
-  const load = useCallback(() => api.get('/admin/teachers').then((res) => res.data.teachers || []), [])
-  const loadSummary = useCallback(() => api.get('/admin/summary').then((res) => res.data.summary || {}), [])
-  const { data: teachers } = useApiData(load, [])
-  const { data: summary } = useApiData(loadSummary, {})
+  const load = useCallback(
+    () => api.get("/admin/teachers").then((res) => res.data.teachers || []),
+    [],
+  );
+  const loadSummary = useCallback(
+    () => api.get("/admin/summary").then((res) => res.data.summary || {}),
+    [],
+  );
+  const { data: teachers } = useApiData(load, []);
+  const { data: summary } = useApiData(loadSummary, {});
 
   return (
     <section className="section dashboard">
@@ -24,17 +30,21 @@ export default function AdminPage() {
       <div className="metrics">
         <StatCard
           label="Registered teachers"
-          value={summary.teachers ?? (teachers.length || '—')}
+          value={summary.teachers ?? (teachers.length || "—")}
           note="Verified member records"
         />
         <StatCard
           label="Pending messages"
-          value={summary.messages ?? '—'}
+          value={summary.messages ?? "—"}
           note="Review inbox"
         />
         <StatCard
           label="Cashflow this month"
-          value={summary.cashflow !== undefined ? `GH₵ ${Number(summary.cashflow).toLocaleString()}` : 'GH₵ —'}
+          value={
+            summary.cashflow !== undefined
+              ? `GH₵ ${Number(summary.cashflow).toLocaleString()}`
+              : "GH₵ —"
+          }
           note="Successful Paystack payments"
         />
       </div>
@@ -51,15 +61,19 @@ export default function AdminPage() {
               </span>
               <div>
                 <strong>{teacher.name}</strong>
-                <small>{teacher.email} · {teacher.status}</small>
+                <small>
+                  {teacher.email} · {teacher.status}
+                </small>
               </div>
-              <b style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                {teacher.verification_status || 'pending'}
+              <b style={{ fontSize: "0.8rem", opacity: 0.7 }}>
+                {teacher.verification_status || "pending"}
               </b>
             </div>
           ))
         ) : (
-          <div className="empty-state">Teacher records will appear here after they sign in.</div>
+          <div className="empty-state">
+            Teacher records will appear here after they sign in.
+          </div>
         )}
       </div>
 
@@ -67,19 +81,26 @@ export default function AdminPage() {
         <article>
           <MessageSquare />
           <h3>Contact inbox</h3>
-          <p>Review and manage messages submitted from the public contact page.</p>
+          <p>
+            Review and manage messages submitted from the public contact page.
+          </p>
         </article>
         <article>
           <WalletCards />
           <h3>Cashflow</h3>
-          <p>Track successful Paystack payments and contribution performance.</p>
+          <p>
+            Track successful Paystack payments and contribution performance.
+          </p>
         </article>
         <article>
           <Users />
           <h3>Teacher CRUD</h3>
-          <p>Update, suspend, or remove teacher accounts with protected admin access.</p>
+          <p>
+            Update, suspend, or remove teacher accounts with protected admin
+            access.
+          </p>
         </article>
       </div>
     </section>
-  )
+  );
 }

@@ -1,17 +1,22 @@
-import { useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowRight, CheckCircle2 } from 'lucide-react'
-import api from '../lib/api'
-import { fallbackPlans } from '../data/fallback'
-import { useApiData } from '../hooks/useApiData'
-import PageHeader from '../components/PageHeader'
+import { useCallback } from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
+import api from "../lib/api";
+import { fallbackPlans } from "../data/fallback";
+import { useApiData } from "../hooks/useApiData";
+import PageHeader from "../components/PageHeader";
 
 export default function PlansPage({ user }) {
-  const loadPlans = useCallback(() =>
-    api.get('/plans').then((res) => (res.data.plans?.length ? res.data.plans : fallbackPlans)),
-    []
-  )
-  const { data: plans } = useApiData(loadPlans, fallbackPlans)
+  const loadPlans = useCallback(
+    () =>
+      api
+        .get("/plans")
+        .then((res) =>
+          res.data.plans?.length ? res.data.plans : fallbackPlans,
+        ),
+    [],
+  );
+  const { data: plans } = useApiData(loadPlans, fallbackPlans);
 
   return (
     <section className="section">
@@ -24,7 +29,7 @@ export default function PlansPage({ user }) {
       <div className="plans-grid">
         {plans.map((plan, index) => (
           <article
-            className={`plan-card ${index === 1 ? 'featured' : ''}`}
+            className={`plan-card ${index === 1 ? "featured" : ""}`}
             key={plan.id}
           >
             <div className="plan-top">
@@ -50,14 +55,14 @@ export default function PlansPage({ user }) {
 
             <Link
               className="button primary full"
-              to={user ? '/dashboard' : '/login'}
+              to={user ? "/dashboard" : "/login"}
             >
-              {user ? 'Continue in dashboard' : 'Sign in to continue'}
+              {user ? "Continue in dashboard" : "Sign in to continue"}
               <ArrowRight size={16} />
             </Link>
           </article>
         ))}
       </div>
     </section>
-  )
+  );
 }

@@ -1,5 +1,57 @@
-import { useState } from 'react'
-import toast from 'react-hot-toast'
-import { ArrowRight } from 'lucide-react'
-import api from '../lib/api'
-export default function ContactPage() { const [form, setForm] = useState({ name: '', email: '', message: '' }); const submit = async (e) => { e.preventDefault(); try { await api.post('/contact', form); toast.success('Message sent. We will be in touch.'); setForm({ name: '', email: '', message: '' }) } catch { toast.error('We could not send your message yet.') } }; return <section className="section narrow-page"><span className="eyebrow">Contact us</span><h1>Let’s talk about your financial future.</h1><p className="lead">Send us a message and our Kumasi team will respond as soon as possible.</p><form className="form-card" onSubmit={submit}><label>Name<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label><label>Email<input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label><label>Message<textarea required rows="5" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} /></label><button className="button primary">Send message <ArrowRight size={17} /></button></form></section> }
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { ArrowRight } from "lucide-react";
+import api from "../lib/api";
+export default function ContactPage() {
+  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post("/contact", form);
+      toast.success("Message sent. We will be in touch.");
+      setForm({ name: "", email: "", message: "" });
+    } catch {
+      toast.error("We could not send your message yet.");
+    }
+  };
+  return (
+    <section className="section narrow-page">
+      <span className="eyebrow">Contact us</span>
+      <h1>Let’s talk about your financial future.</h1>
+      <p className="lead">
+        Send us a message and our Kumasi team will respond as soon as possible.
+      </p>
+      <form className="form-card" onSubmit={submit}>
+        <label>
+          Name
+          <input
+            required
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+        </label>
+        <label>
+          Email
+          <input
+            required
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </label>
+        <label>
+          Message
+          <textarea
+            required
+            rows="5"
+            value={form.message}
+            onChange={(e) => setForm({ ...form, message: e.target.value })}
+          />
+        </label>
+        <button className="button primary">
+          Send message <ArrowRight size={17} />
+        </button>
+      </form>
+    </section>
+  );
+}

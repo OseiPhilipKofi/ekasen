@@ -13,26 +13,31 @@ final class AuthController
     {
     }
 
-    public function google(array $payload): never
+    public function google(array $payload): void
     {
         $credential = (string)($payload['credential'] ?? '');
         if ($credential === '') {
             $this->response->json(['error' => 'Google credential is required'], 422);
+            // exit;
         }
         $claims = $this->verifyGoogleCredential($credential);
         if (!is_array($claims) || ($claims['iss'] ?? '') !== 'https://accounts.google.com' || ($claims['exp'] ?? 0) < time()) {
             $this->response->json(['error' => 'Expired or invalid Google credential'], 401);
+            // exit;
         }
         if ($this->config->get('GOOGLE_CLIENT_ID') !== '' && ($claims['aud'] ?? '') !== $this->config->get('GOOGLE_CLIENT_ID')) {
             $this->response->json(['error' => 'Google credential audience mismatch'], 401);
+            // exit;
         }
         $email = filter_var($claims['email'] ?? '', FILTER_VALIDATE_EMAIL);
         if (!$email) {
             $this->response->json(['error' => 'Invalid Google credential'], 401);
+            // exit;
         }
         $account = $this->users->upsert((string)($claims['sub'] ?? hash('sha256', $email)), (string)($claims['name'] ?? $email), $email, $email === $this->config->get('GOOGLE_ACCOUNT') ? 'admin' : 'teacher');
         $account['token'] = hash_hmac('sha256', (string)$account['id'], $this->config->apiSecret());
         $this->response->json(['user' => $account]);
+        // exit;
     }
 
     private function verifyGoogleCredential(string $credential): ?array

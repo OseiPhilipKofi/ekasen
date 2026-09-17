@@ -1,22 +1,38 @@
-import { GoogleLogin } from '@react-oauth/google'
-import { useNavigate } from 'react-router-dom'
-import toast from 'react-hot-toast'
-import api from '../lib/api'
+import { GoogleLogin } from "@react-oauth/google";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import api from "../lib/api";
 
 export default function LoginPage({ onLogin }) {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   const login = async (credential) => {
     try {
-      const res = await api.post('/auth/google', { credential })
-      onLogin(res.data.user)
+      // Force loading bar to trigger manually on submit
+      window.dispatchEvent(new CustomEvent("app-loading", { detail: { loading: true } }));
 
-      toast.success(`Welcome, ${res.data.user.name || 'member'}!`)
-      navigate(res.data.user.role === 'admin' ? '/admin' : '/dashboard')
-    } catch(error) {
-      toast.error('Google sign-in could not be completed.'+error)
+      const res = await api.post("/auth/google", { credential });
+      onLogin(res.data.user);
+
+      toast.success(`Welcome, ${res.data.user.name || "member"}!`);
+
+      // Force loading bar to complete before firing route redirection
+      window.dispatchEvent(new CustomEvent("app-loading", { detail: { loading: false } }));
+      navigate(res.data.user.role === "admin" ? "/admin" : "/dashboard");
+      // const res = await api.post("/auth/google", { credential });
+
+      // // DIAGNOSTIC CHECK: See exactly what the backend responded with in the console
+      // console.log("Backend response payload data:", res.data);
+      // onLogin(res.data.user);
+
+      // toast.success(`Welcome, ${res.data.user.name || "member"}!`);
+      // navigate(res.data.user.role === "admin" ? "/admin" : "/dashboard");
+    } catch (error) {
+      window.dispatchEvent(new CustomEvent("app-loading", { detail: { loading: false } }));
+
+      toast.error("Google sign-in could not be completed. " + error);
     }
-  }
+  };
 
   return (
     <section className="auth-page">
@@ -28,10 +44,10 @@ export default function LoginPage({ onLogin }) {
 
         <GoogleLogin
           onSuccess={(response) => login(response.credential)}
-          onError={() => toast.error('Google sign-in failed.')}
+          onError={() => toast.error("Google sign-in failed.")}
           useOneTap
         />
       </div>
     </section>
-  )
+  );
 }

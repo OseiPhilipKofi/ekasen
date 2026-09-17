@@ -1,16 +1,29 @@
-import axios from 'axios'
+import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost/api',
-  headers: { Accept: 'application/json' },
-})
-
-console.log(api);
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost/api",
+  headers: { Accept: "application/json" },
+});
 
 api.interceptors.request.use((config) => {
-  const session = sessionStorage.getItem('tifund_user')
-  if (session) config.headers.Authorization = `Bearer ${JSON.parse(session).token || ''}`
-  return config
-})
+  window.dispatchEvent(new CustomEvent("app-loading", { detail: { loading: true } }));
+  const session = sessionStorage.getItem("tifund_user");
+  if (session)
+    config.headers.Authorization = `Bearer ${JSON.parse(session).token || ""}`;
+  return config;
+});
 
-export default api
+api.interceptors.response.use(
+  (response) => {
+    window.dispatchEvent(new CustomEvent("app-loading", { detail: { loading: false } }));
+    console.log(response);
+    return response;
+  },
+  (error) => {
+    console.log(error);
+    window.dispatchEvent(new CustomEvent("app-loading", { detail: { loading: false } }));
+    return Promise.reject(error);
+  },
+);
+
+export default api;

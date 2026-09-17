@@ -1,3 +1,4 @@
+# {"type":"https://tools.ietf.org/html/rfc9110#section-15.5.4","title":"Forbidden","status":403,"traceId":"00-9b6aa256b2cd2fbb120e4c6b4df1135c-1ab33a7a99444eb3-00"}
 # TiFund API
 
 This is the root-level PHP API for TeacherInvestmentFund. `index.php` is a thin entry point; application code is organized under `src/` into configuration, database/schema bootstrap, HTTP primitives, repositories, controllers, and a router.
