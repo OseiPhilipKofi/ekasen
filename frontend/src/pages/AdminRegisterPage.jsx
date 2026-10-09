@@ -182,8 +182,8 @@ export default function AdminRegisterPage() {
                   minHeight: "80px",
                   borderRadius: "0.5rem",
                   overflow: "hidden",
-                  border: "1px solid #ddd",
-                  background: "#f9f9f9",
+                  border: "1px solid var(--brand-line)",
+                  background: "var(--brand-card-tint)",
                   cursor: previews[field.key] ? "pointer" : "default",
                   flexShrink: 0,
                   marginTop: "1rem",
@@ -194,37 +194,17 @@ export default function AdminRegisterPage() {
                     <img
                       src={previews[field.key]}
                       alt="Preview"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
+                      style={{ width: "100%", height: "100%", objectFit: "cover", }} />
                   ) : (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        height: "100%",
-                        fontSize: "0.7rem",
-                        textAlign: "center",
-                        padding: "2px",
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: "0.7rem", textAlign: "center", padding: "2px",
                       }}
                     >
                       PDF
                     </div>
                   )
                 ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: "100%",
-                      opacity: 0.3,
-                    }}
-                  >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.3,
+                    }} >
                     {field.icon}
                   </div>
                 )}

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./hooks/useAuth";
@@ -10,6 +10,7 @@ import RouteLoader from "./components/RouteLoader";
 import HomePage from "./pages/HomePage";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
+import ServicesPage from "./pages/ServicesPage";
 import LoginPage from "./pages/LoginPage";
 import PlansPage from "./pages/PlansPage";
 import RegistrationPage from "./pages/RegistrationPage";
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="/services" element={<ServicesPage />} />
         <Route path="/login" element={<LoginPage onLogin={signIn} />} />
         <Route path="/register" element={<RegistrationPage />} />
         <Route path="/plans" element={<PlansPage user={user} />} />
@@ -45,7 +47,11 @@ export default function App() {
           path="/dashboard"
           element={
             <ProtectedRoute user={user}>
-              <DashboardPage user={user} />
+              {user?.role === "admin" ? (
+                <AdminPage user={user} />
+              ) : (
+                <DashboardPage user={user} />
+              )}
             </ProtectedRoute>
           }
         />
@@ -85,7 +91,7 @@ export default function App() {
           path="/admin"
           element={
             <ProtectedRoute user={user} admin>
-              <AdminPage />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />

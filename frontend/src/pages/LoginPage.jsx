@@ -18,7 +18,7 @@ export default function LoginPage({ onLogin }) {
 
       // Force loading bar to complete before firing route redirection
       window.dispatchEvent(new CustomEvent("app-loading", { detail: { loading: false } }));
-      navigate(res.data.user.role === "admin" ? "/admin" : "/dashboard");
+      navigate("/dashboard");
       // const res = await api.post("/auth/google", { credential });
 
       // // DIAGNOSTIC CHECK: See exactly what the backend responded with in the console

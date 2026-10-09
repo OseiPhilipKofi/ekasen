@@ -12,23 +12,20 @@ final class Connection
 
     public function __construct(AppConfig $config)
     {
-        $host = $config->get('DB_HOST', 'localhost');
-        $port = $config->get('DB_PORT', '3306');
-        $user = $config->get('DB_USER');
-        $pass = $config->get('DB_PASSWORD');
-        $name = $config->get('DB_NAME', 'tifund');
-        if (!preg_match('/^[A-Za-z0-9_]+$/', $name)) {
-            throw new InvalidArgumentException('Invalid database name configuration.');
+        $path = $config->get('DB_PATH', __DIR__ . '/../../database/tifund.sqlite');
+        $directory = dirname($path);
+        if ($path !== ':memory:' && !is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new \RuntimeException('Unable to create the SQLite database directory.');
         }
-        $options = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION];
-        $server = new PDO("mysql:host={$host};port={$port};charset=utf8mb4", $user, $pass, $options);
-        $server->exec("CREATE DATABASE IF NOT EXISTS `{$name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-        $this->pdo = new PDO(
-            "mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4",
-            $user,
-            $pass,
-            $options + [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
-        );
+
+        $this->pdo = new PDO('sqlite:' . $path, null, null, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+        $this->pdo->exec('PRAGMA foreign_keys = ON');
+        if ($path !== ':memory:') {
+            $this->pdo->exec('PRAGMA journal_mode = WAL');
+        }
         (new Schema($this->pdo))->bootstrap();
     }
 

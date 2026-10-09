@@ -53,6 +53,7 @@ final class Router
         if ($route === 'auth/google' && $method === 'POST') $this->auth->google($payload);
         if ($route === 'plans' && $method === 'GET') $this->public->plans();
         if ($route === 'content/home' && $method === 'GET') $this->public->home();
+        if (preg_match('#^content/(services|contact)$#', $route, $match) && $method === 'GET') $this->public->contentPage($match[1]);
         if ($route === 'contact' && $method === 'POST') $this->public->contact($payload);
         if ($route === 'registration' && $method === 'POST') $this->public->registration($payload);
         if ($route === 'payments/webhook' && $method === 'POST') $this->payments->webhook($this->request);
@@ -62,7 +63,7 @@ final class Router
         $user = $this->userRepository->findByToken($token, $this->config->apiSecret());
         if (!$user) $this->response->json(['error' => 'Invalid session'], 401);
         if ($route === 'history' && $method === 'GET') $this->payments->history((int)$user['id']);
-        if ($route === 'account' && $method === 'GET') $this->payments->account((int)$user['id']);
+        if ($route === 'account' && in_array($method, ['GET', 'PUT', 'POST', 'DELETE'], true)) $this->userController->profile($user, $method, $payload, $this->request->files());
         if ($route === 'notifications' && $method === 'GET') $this->payments->notifications((int)$user['id']);
         if (preg_match('#^notifications/(\d+)/read$#', $route, $match) && $method === 'PUT') $this->payments->markNotification((int)$user['id'], (int)$match[1]);
         if ($route === 'payments/verify' && $method === 'POST') $this->payments->verify($payload, (int)$user['id']);
@@ -70,6 +71,7 @@ final class Router
         if ($route === 'admin/users' && $method === 'GET') $this->admin->users($user);
         if (in_array($route, ['admin/teachers/register', 'admin/registration'], true) && $method === 'POST') $this->admin->registerTeacher($user, $payload, $this->request->files());
         if ($route === 'admin/summary' && $method === 'GET') $this->admin->summary($user);
+        if (preg_match('#^admin/teachers/(\d+)/documents/(\d+)$#', $route, $match) && $method === 'GET') $this->admin->teacherDocument($user, (int)$match[1], (int)$match[2]);
         if (preg_match('#^admin/teachers/(\d+)$#', $route, $match) && in_array($method, ['GET', 'PUT', 'DELETE'], true)) $this->admin->teacher($user, (int)$match[1], $method, $payload);
         if ($route === 'admin/content' && in_array($method, ['GET', 'PUT', 'POST'], true)) $this->admin->content($user, $payload, $method === 'POST' ? 'PUT' : $method);
         if ($route === 'admin/messages' && $method === 'GET') $this->admin->messages($user);
@@ -81,7 +83,6 @@ final class Router
         if ($route === 'admin/payments' && $method === 'GET') $this->admin->paymentHistory($user);
         if (preg_match('#^admin/payments/(\d+)$#', $route, $match) && $method === 'GET') $this->admin->paymentHistory($user, (int)$match[1]);
         if (preg_match('#^admin/plans(?:/(\d+))?$#', $route, $match) && in_array($method, ['GET', 'POST', 'PUT', 'DELETE'], true)) $this->admin->plans($user, $method, $payload, isset($match[1]) ? (int)$match[1] : null);
-        if ($route === 'account' && in_array($method, ['GET', 'PUT', 'POST', 'DELETE'], true)) $this->userController->profile($user, $method, $payload, $this->request->files());
         if ($route === 'activity' && $method === 'GET') $this->userController->activities($user);
         if ($route === 'activities' && $method === 'GET') $this->userController->activities($user);
         $this->response->json(['error' => 'Route not found'], 404);

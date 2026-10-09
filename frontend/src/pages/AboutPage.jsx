@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { FileText, ShieldCheck, Users, ChevronDown } from "lucide-react";
 import api from "../lib/api";
 import { useApiData } from "../hooks/useApiData";
+import ProfileAvatar from "../components/ProfileAvatar";
 
 export default function AboutPage() {
   const loadWorkers = useCallback(
@@ -81,19 +82,14 @@ export default function AboutPage() {
                   textAlign: "center",
                   padding: "1rem",
                   borderRadius: "1rem",
-                  border: "1px solid #eee",
+                  border: "1px solid var(--brand-line)",
+                  background: "var(--brand-card-tint)",
                 }}
               >
-                <img
-                  src={w.img ? `/api/${w.img}` : "/assets/avatar.png"}
+                <ProfileAvatar
+                  src={w.img}
                   alt={w.name}
-                  style={{
-                    width: "100px",
-                    height: "100px",
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    marginBottom: "1rem",
-                  }}
+                  size={100}
                 />
                 <strong>{w.name}</strong>
                 <p style={{ fontSize: "0.9rem", opacity: 0.7 }}>{w.role}</p>

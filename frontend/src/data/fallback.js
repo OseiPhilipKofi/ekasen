@@ -42,6 +42,43 @@ export const fallbackPlans = [
       "Retirement planning session",
     ],
   },
+  {
+    id: 4,
+    name: "Steady Saver",
+    amount: 150,
+    cadence: "Monthly",
+    description: "A manageable monthly contribution option for steady saving.",
+    benefits: [
+      "Monthly contributions",
+      "Contribution history in your account",
+      "Member support",
+    ],
+  },
+  {
+    id: 5,
+    name: "Quarterly Builder",
+    amount: 900,
+    cadence: "Quarterly",
+    description:
+      "A quarterly contribution option for members who prefer less frequent payments.",
+    benefits: [
+      "Quarterly contributions",
+      "Contribution history in your account",
+      "Member support",
+    ],
+  },
+  {
+    id: 6,
+    name: "Future Focus",
+    amount: 1200,
+    cadence: "Annual",
+    description: "An annual contribution option for members planning ahead.",
+    benefits: [
+      "Annual contributions",
+      "Contribution history in your account",
+      "Member support",
+    ],
+  },
 ];
 
 export const fallbackHistory = [

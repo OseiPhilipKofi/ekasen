@@ -1,39 +1,60 @@
-# {"type":"https://tools.ietf.org/html/rfc9110#section-15.5.4","title":"Forbidden","status":403,"traceId":"00-9b6aa256b2cd2fbb120e4c6b4df1135c-1ab33a7a99444eb3-00"}
 # TiFund API
 
-This is the root-level PHP API for TeacherInvestmentFund. `index.php` is a thin entry point; application code is organized under `src/` into configuration, database/schema bootstrap, HTTP primitives, repositories, controllers, and a router.
+The API is a PHP/PDO service for Teacher Investment Fund. It uses a local SQLite database by default and initializes its tables, indexes, default plans, and default page content when the API starts.
 
-## Start it
+## Start the API
 
-1. Enable PHP PDO MySQL and the PHP zip extension in XAMPP.
+1. Enable PHP `pdo_sqlite` and `curl`.
 2. Run `composer install` in this folder.
-3. Copy `.env.example` to `.env` and fill in the local MySQL, Google, API, and Paystack values.
-4. Serve the project from Apache as `http://localhost/EKASEN`, or point `VITE_API_URL` at the API URL.
+3. Configure the Google OAuth and Paystack values used by the API in `api/.env` (the API never needs the Paystack secret in the frontend).
+4. Start the API from this folder:
 
-`src/Database/Connection.php` validates the configured database name, creates it if missing, and opens a PDO connection. `src/Database/Schema.php` runs `CREATE TABLE IF NOT EXISTS` for every required table on every API connection, so a missing table is recreated before requests continue. `database/schema.sql` is the human-readable reference schema. The API also seeds the three starter plans when the plans table is empty. Never commit `.env`, private Paystack keys, database passwords, or API secrets.
+   ```powershell
+   php -S 127.0.0.1:8000 -t .
+   ```
 
-## Request routes
+5. Set `VITE_API_URL=http://127.0.0.1:8000` in `frontend/.env` and start the frontend.
 
-- `POST /auth/google` accepts `{ "credential": "google-id-token" }` and creates/updates the user.
-- `GET /plans` returns active plans.
-- `GET /content/home` returns editable home content.
-- `POST /contact` saves a contact message.
-- `GET /history` returns the signed-in member's payment history.
-- `POST /payments/verify` verifies and saves a successful Paystack popup response.
-- `POST /payments/webhook` validates `X-Paystack-Signature` and updates successful charges.
-- `GET /admin/teachers` returns teacher records for an admin session.
-- `POST /admin/teachers/register` or `/admin/registration` registers a teacher with multipart profile/document uploads.
-- `GET /admin/teachers/{id}` returns one teacher and protected document metadata.
-- `PUT/DELETE /admin/teachers/{id}` updates or removes a teacher account.
-- `PUT /admin/content`, `GET /admin/messages`, and `POST /admin/notifications` support admin content and communication workflows.
-- `GET /admin/activities`, `GET /admin/payments`, and `/admin/plans` support audit, cashflow, and plan administration.
-- `GET/PUT/POST/DELETE /account` supports the signed-in user's profile CRUD and profile-photo upload.
-- `GET /activity` and `/activities` return the signed-in user's activity history.
+The API allows the local Vite origins `http://localhost:5173` and `http://127.0.0.1:5173` by default. For another frontend origin, set `FRONTEND_URL` or a comma-separated `FRONTEND_URLS` list in `api/.env`.
 
-Send the session token from the Google response as `Authorization: Bearer <token>`. The Paystack browser popup is the only payment initiation method; the API calls Paystack's server-side verification endpoint before persisting a response and validates signed webhook callbacks.
+The database file defaults to `api/database/tifund.sqlite`. Set `DB_PATH` in `api/.env` to use a different absolute or relative file path. The API creates the containing directory if needed and enables SQLite foreign keys and WAL mode. The generated database file is ignored by Git; keep backups outside the source tree.
 
-Identity evidence belongs in `identity_documents` as validated MySQL binary data and should only be exposed through an authenticated admin download endpoint when that workflow is enabled.
+`database/schema.sql` is the SQLite reference schema. `src/Database/Schema.php` is the executable source of truth and applies safe `CREATE TABLE IF NOT EXISTS` definitions plus missing-column additions at startup. Six editable sample contribution plans and default public content are seeded without replacing administrator edits. The sample plan amounts and terms are examples, not promised returns. Three supplemental service entries are added once to any existing service list.
 
-All domain tables use an auto-incrementing `id` primary key. User-owned queries use the authenticated account identity; email is retained as a unique contact/login identifier and returned in account/payment/admin views. Development-safe seed plans and content sections are inserted only when those tables are empty.
+> **Existing database data:** switching from MySQL to SQLite creates a new SQLite file; existing MySQL records are not automatically copied. Back up and migrate any records you need before retiring the MySQL database.
 
-Security checks include prepared SQL statements, strict database-name validation, Google tokeninfo verification with issuer/expiry/audience checks, HMAC session tokens, admin-role guards, Paystack signature verification, Paystack server-side transaction verification, CORS allowlisting, and response hardening headers.
+## API routes
+
+### Public
+
+- `POST /auth/google` verifies a Google credential and returns the existing or newly-created account with its associated `teacher_profile`.
+- `GET /plans`
+- `GET /content/home`
+- `GET /content/services`
+- `GET /content/contact`
+- `POST /registration`
+- `POST /contact` stores name, email, optional phone/subject, and message.
+- `POST /payments/webhook`
+
+### Signed-in users
+
+- `GET/POST/PUT/DELETE /account` reads or updates contact and teacher-profile details. Google-managed name/email remain read-only. Only admins can change staff IDs.
+- `GET /history`, `GET /notifications`, `PUT /notifications/{id}/read`
+- `POST /payments/verify`
+- `GET /activity`
+
+### Admin
+
+- `GET /admin/summary`, `/admin/users`, `/admin/teachers`
+- `GET/PUT/DELETE /admin/teachers/{id}` manages user profile details and account status; deletion remains restricted to teacher accounts.
+- `GET /admin/teachers/{id}/documents/{document_id}` streams a teacher document to an administrator after verifying document ownership.
+- `POST /admin/teachers/register`
+- `GET/PUT /admin/content` manages homepage, services, and contact-page content.
+- `GET /admin/messages`, `POST /admin/notifications`
+- `GET /admin/activities`, `GET /admin/payments`, and `/admin/plans`
+
+User queries return account identity alongside the matching teacher profile. Google sign-in is idempotent: returning accounts and their profiles are reused rather than inserted again.
+
+Profile photos and CMS images are served from their stored `uploads/` paths. Teacher documents use the authenticated admin endpoint above rather than a public file path. When an uploaded profile photo, teacher document, or CMS asset is replaced, the API checks the stored references before removing the old file from `api/uploads`. Shared files and files still referenced by another record are retained.
+
+Prepared statements, signed session tokens, Google credential validation, admin-role checks, Paystack verification and webhook signature validation are used for the relevant API operations. Never commit `.env`, database files, private Paystack keys, or credentials.

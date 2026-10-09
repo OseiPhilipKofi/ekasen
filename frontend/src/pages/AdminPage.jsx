@@ -5,8 +5,9 @@ import { useApiData } from "../hooks/useApiData";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import AdminNav from "../components/AdminNav";
+import DashboardPage from "./DashboardPage";
 
-export default function AdminPage() {
+export default function AdminPage({ user }) {
   const load = useCallback(
     () => api.get("/admin/teachers").then((res) => res.data.teachers || []),
     [],
@@ -22,9 +23,14 @@ export default function AdminPage() {
     <section className="section dashboard">
       <AdminNav />
       <PageHeader
-        eyebrow="Administration"
-        title="Manage TiFund from one place."
+        eyebrow="Administrator"
+        title="Administration overview"
         description="Review teachers, messages, content, notifications, and cashflow."
+        action={
+          <a className="button secondary" href="#my-member-dashboard">
+            My member dashboard
+          </a>
+        }
       />
 
       <div className="metrics">
@@ -101,6 +107,8 @@ export default function AdminPage() {
           </p>
         </article>
       </div>
+
+      <DashboardPage user={user} embedded />
     </section>
   );
 }

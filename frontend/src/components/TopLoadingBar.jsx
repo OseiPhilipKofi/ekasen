@@ -51,9 +51,9 @@ export default function TopLoadingBar() {
         style={{
           width: `${progress}%`,
           height: "100%",
-          backgroundColor: "#145be7", // var(--blue)
+          backgroundColor: "var(--brand-primary)",
           transition: "width 0.3s ease-out",
-          boxShadow: "0 0 10px #145be7",
+          boxShadow: "0 0 10px var(--brand-primary)",
         }}
       />
     </div>

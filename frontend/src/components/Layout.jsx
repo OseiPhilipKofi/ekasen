@@ -10,6 +10,7 @@ export default function Layout({ user, onLogout, children }) {
   const links = [
     ["/", "Home"],
     ["/about", "About"],
+    ["/services", "Services"],
     ["/plans", "Plans"],
     ["/contact", "Contact"],
   ];
@@ -51,13 +52,7 @@ export default function Layout({ user, onLogout, children }) {
 
             {user && (
               <NavLink to="/account" onClick={() => setOpen(false)}>
-                Account
-              </NavLink>
-            )}
-
-            {user?.role === "admin" && (
-              <NavLink to="/admin" onClick={() => setOpen(false)}>
-                Admin
+                Profile
               </NavLink>
             )}
 
@@ -86,10 +81,10 @@ export default function Layout({ user, onLogout, children }) {
             <strong className="footer-logo">TiFund</strong>
             <p>Building secure futures for Ghanaian teachers through sustainable investment and financial security.</p>
             <div className="footer-socials">
-              <a href="#" aria-label="Facebook"><FacebookIcon size={18} /></a>
-              <a href="#" aria-label="Twitter"><TwitterIcon size={18} /></a>
-              <a href="#" aria-label="Instagram"><InstagramIcon size={18} /></a>
-              <a href="#" aria-label="LinkedIn"><LinkedinIcon size={18} /></a>
+              <a href="#" aria-label="Facebook"> <FacebookIcon size={25} /> </a>
+              <a href="#" aria-label="Twitter"> <TwitterIcon size={25} /> </a>
+              <a href="#" aria-label="Instagram"> <InstagramIcon size={25} /> </a>
+              <a href="#" aria-label="LinkedIn"> <LinkedinIcon size={25} /> </a>
             </div>
           </div>
 
@@ -98,6 +93,7 @@ export default function Layout({ user, onLogout, children }) {
               <h4>Platform</h4>
               <Link to="/">Home</Link>
               <Link to="/about">About Us</Link>
+              <Link to="/services">Services</Link>
               <Link to="/plans">Investment Plans</Link>
               <Link to="/contact">Contact</Link>
             </div>
@@ -107,16 +103,6 @@ export default function Layout({ user, onLogout, children }) {
               <Link to="/terms">Terms of Service</Link>
               <Link to="/privacy">Privacy Policy</Link>
             </div>
-          </div>
-        </div>
-
-        <div className="footer-partners">
-          <span className="partners-label">Our Trusted Partners</span>
-          <div className="partners-grid">
-            <div className="partner-logo">Ghana Education Service</div>
-            <div className="partner-logo">Teacher Pension Fund</div>
-            <div className="partner-logo">National Trust</div>
-            <div className="partner-logo">Paystack</div>
           </div>
         </div>
 

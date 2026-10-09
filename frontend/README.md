@@ -1,31 +1,35 @@
 # TiFund frontend
 
-This is the React/Vite side of TeacherInvestmentFund. It contains the public site, Google sign-in, teacher dashboard and history, Paystack-only plan payments, and the admin link that is shown only to an admin session.
+This is the React/Vite side of Teacher Investment Fund. It contains the public site, Google sign-in, role-aware account dashboard, payment history, Paystack plan payments, contact options, and admin tools.
 
 ## Start it
 
 ```bash
 npm install
-copy .env.example .env
 npm run dev
 ```
 
-The development server is fixed to `http://localhost:5173`. Open that URL after `npm run dev`; do not open the PHP `api` folder or an unused Vite port directly.
+The development server runs at `http://localhost:5173`. Open that URL after `npm run dev`.
 
-Set `VITE_API_URL` to the URL where the root-level `api` folder is served. Add the Google OAuth client id and Paystack public test key to `.env`; do not place private keys in this file.
+Create `frontend/.env` with `VITE_API_URL` set to the PHP API URL (for example `http://127.0.0.1:8000`), and set the Google OAuth client ID and Paystack **public** key there. Never put private keys in the frontend.
 
 ## Main routes
 
 - `/` landing page and feature search
 - `/about` institution story and FAQs
-- `/contact` contact form
+- `/services` administrator-managed service listings
+- `/contact` WhatsApp, call, email, and custom message form
 - `/plans` Ghana cedi subscription plans and Paystack popup
 - `/login` Google-only login
-- `/dashboard` signed-in teacher overview
+- `/dashboard` the single role-aware dashboard route; teachers see their account overview and admins see the management overview
 - `/history` signed-in payment history
 - `/payments` Paystack payment guidance and contribution entry
-- `/account` teacher profile and verification status
+- `/account` shared user/admin profile editing and verification status; Google-managed name/email are read-only and only admins can edit staff IDs
 - `/notifications` account notifications
-- `/admin` admin-only teacher management view
+- `/admin/*` admin-only management sections
 
-All HTTP calls go through `src/lib/api.js` using Axios. Reusable shell/navigation lives in `src/components`. Keep API paths relative to the API base URL so hosting does not require frontend rewrites.
+Admins manage service listings, homepage carousel slides, worker profiles, sponsor/partner cards, FAQs, and contact phone/WhatsApp/email settings from **Admin → Content**. Homepage benefit, worker, and configured sponsor cards use pausable auto-sliders; sponsor cards remain hidden until the admin adds confirmed entries. Direct-contact settings are intentionally configurable rather than hard-coded.
+
+All HTTP calls go through `src/lib/api.js` using Axios. Reusable shell/navigation lives in `src/components`. Global theme colors and surface tokens are declared in `src/style.css` under `:root` (`--brand-primary`, `--brand-primary-dark`, `--brand-green`, `--brand-gold`, `--brand-ink`, `--brand-muted`, `--brand-line`, `--brand-surface`, `--brand-canvas`, `--brand-card-tint`, `--brand-card-cool`, and `--brand-card-warm`). Update those values to restyle buttons, cards, carousel panels, and page backgrounds consistently.
+
+Uploaded profile and CMS image paths are resolved against the configured API host through `ProfileAvatar`. Admin document thumbnails are fetched through the authenticated admin API, rather than exposed as public upload URLs.

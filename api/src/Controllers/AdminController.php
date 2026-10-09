@@ -24,13 +24,23 @@ final class AdminController
     public function teachers(array $user): never
     {
         $this->requireAdmin($user);
-        $this->response->json(['teachers' => $this->pdo->query('SELECT u.id, u.name, u.email, u.status, u.created_at, p.phone, p.school_name, p.staff_id, p.national_id, p.birth_date, p.profile_photo_path, p.verification_status FROM users u LEFT JOIN teacher_profiles p ON p.user_id=u.id WHERE u.role="teacher" ORDER BY u.created_at DESC')->fetchAll()]);
+        $teachers = $this->pdo->query("SELECT u.id, u.name, u.email, u.status, u.created_at, p.phone, p.school_name, p.staff_id, p.national_id, p.birth_date, p.profile_photo_path, p.verification_status FROM users u LEFT JOIN teacher_profiles p ON p.user_id=u.id WHERE u.role='teacher' ORDER BY u.created_at DESC")->fetchAll();
+        foreach ($teachers as &$teacher) {
+            $teacher['teacher_profile'] = array_intersect_key($teacher, array_flip(['phone', 'school_name', 'staff_id', 'national_id', 'birth_date', 'profile_photo_path', 'verification_status']));
+        }
+        unset($teacher);
+        $this->response->json(['teachers' => $teachers]);
     }
 
     public function users(array $user): never
     {
         $this->requireAdmin($user);
-        $this->response->json(['users' => $this->pdo->query('SELECT id, name, email, role, status, created_at FROM users ORDER BY created_at DESC')->fetchAll()]);
+        $users = $this->pdo->query('SELECT u.id, u.name, u.email, u.role, u.status, u.created_at, p.phone, p.school_name, p.staff_id, p.national_id, p.birth_date, p.profile_photo_path, p.verification_status FROM users u LEFT JOIN teacher_profiles p ON p.user_id=u.id ORDER BY u.created_at DESC')->fetchAll();
+        foreach ($users as &$entry) {
+            $entry['teacher_profile'] = array_intersect_key($entry, array_flip(['phone', 'school_name', 'staff_id', 'national_id', 'birth_date', 'profile_photo_path', 'verification_status']));
+        }
+        unset($entry);
+        $this->response->json(['users' => $users]);
     }
 
     public function registerTeacher(array $user, array $payload, array $files): never
@@ -43,36 +53,73 @@ final class AdminController
             $this->response->json(['error' => 'Name, email, phone, school and staff ID are required'], 422);
         }
         $this->pdo->beginTransaction();
+        $createdPaths = [];
         try {
-            $q = $this->pdo->prepare('INSERT INTO users (google_id, name, email, role, status) VALUES (?, ?, ?, "teacher", "active")');
+            $q = $this->pdo->prepare("INSERT INTO users (google_id, name, email, role, status) VALUES (?, ?, ?, 'teacher', 'active')");
             $q->execute(['admin:' . bin2hex(random_bytes(16)), $name, $email]);
             $id = (int)$this->pdo->lastInsertId();
             $p = $this->pdo->prepare('INSERT INTO teacher_profiles (user_id, phone, school_name, staff_id, national_id, birth_date) VALUES (?, ?, ?, ?, ?, ?)');
             $p->execute([$id, $phone, trim((string)($payload['school'] ?? $payload['school_name'])), trim((string)$payload['staff_id']), trim((string)($payload['national_id'] ?? $payload['ghana_card'] ?? '')) ?: null, $payload['birth_date'] ?? null]);
-            $this->storeDocuments($id, $files);
+            $replacedPaths = $this->storeDocuments($id, $files, $createdPaths);
             $this->log((int)$user['id'], $id, 'teacher.created', 'user', $id, ['email' => $email]);
             $this->pdo->commit();
-            $this->response->json(['message' => 'Teacher registered', 'user_id' => $id], 201);
         } catch (\Throwable $e) {
-            $this->pdo->rollBack();
-            $this->response->json(['error' => $e->getMessage()], 422);
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            $cleanupErrors = [];
+            foreach ($createdPaths as $path) {
+                try {
+                    Upload::deleteIfUnreferenced($this->pdo, $path);
+                } catch (\Throwable $cleanupError) {
+                    $cleanupErrors[] = $cleanupError->getMessage();
+                }
+            }
+            $message = $e->getMessage();
+            if ($cleanupErrors) {
+                $message .= ' Upload cleanup failed: ' . implode('; ', $cleanupErrors);
+            }
+            $this->response->json(['error' => $message], 422);
         }
+        foreach ($replacedPaths as $path) {
+            Upload::deleteIfUnreferenced($this->pdo, $path);
+        }
+        $this->response->json(['message' => 'Teacher registered', 'user_id' => $id], 201);
     }
 
-    private function storeDocuments(int $userId, array $files): void
+    private function storeDocuments(int $userId, array $files, array &$createdPaths): array
     {
         $map = ['national_id' => 'national_id', 'ghana_card' => 'national_id', 'birth_certificate' => 'birth_certificate', 'teacher_certificate' => 'teacher_certificate'];
+        $replacedPaths = [];
         foreach ($map as $field => $type) {
             if (!isset($files[$field])) continue;
             $saved = Upload::save($files[$field], 'document');
+            $createdPaths[] = $saved['path'];
+            $existing = $this->pdo->prepare('SELECT file_path FROM teacher_documents WHERE user_id=? AND document_type=?');
+            $existing->execute([$userId, $type]);
+            foreach ($existing->fetchAll(PDO::FETCH_COLUMN) as $path) {
+                if (is_string($path) && $path !== '') {
+                    $replacedPaths[] = $path;
+                }
+            }
+            $remove = $this->pdo->prepare('DELETE FROM teacher_documents WHERE user_id=? AND document_type=?');
+            $remove->execute([$userId, $type]);
             $q = $this->pdo->prepare('INSERT INTO teacher_documents (user_id, document_type, file_path, original_name, mime_type, size_bytes) VALUES (?, ?, ?, ?, ?, ?)');
             $q->execute([$userId, $type, $saved['path'], $saved['original_name'], $saved['mime_type'], $saved['size_bytes']]);
         }
         if (isset($files['profile_photo'])) {
+            $existing = $this->pdo->prepare('SELECT profile_photo_path FROM teacher_profiles WHERE user_id=?');
+            $existing->execute([$userId]);
+            $previousPhotoPath = $existing->fetchColumn();
             $saved = Upload::save($files['profile_photo'], 'photo');
+            $createdPaths[] = $saved['path'];
             $q = $this->pdo->prepare('UPDATE teacher_profiles SET profile_photo_path=? WHERE user_id=?');
             $q->execute([$saved['path'], $userId]);
+            if (is_string($previousPhotoPath) && $previousPhotoPath !== '') {
+                $replacedPaths[] = $previousPhotoPath;
+            }
         }
+        return array_values(array_unique($replacedPaths));
     }
 
     public function summary(array $user): never
@@ -80,7 +127,7 @@ final class AdminController
         $this->requireAdmin($user);
         $teachers = (int)$this->pdo->query("SELECT COUNT(*) FROM users WHERE role='teacher'")->fetchColumn();
         $messages = (int)$this->pdo->query("SELECT COUNT(*) FROM contact_messages WHERE status='unread'")->fetchColumn();
-        $cashflow = (float)$this->pdo->query("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status='success' AND created_at >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')")->fetchColumn();
+        $cashflow = (float)$this->pdo->query("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status='success' AND created_at >= date('now', 'start of month')")->fetchColumn();
         $this->response->json(['summary' => ['teachers' => $teachers, 'messages' => $messages, 'cashflow' => $cashflow]]);
     }
 
@@ -93,22 +140,74 @@ final class AdminController
             $this->response->json(['message' => 'Teacher account deleted']);
         }
         if ($method === 'GET') {
-            $query = $this->pdo->prepare('SELECT u.id,u.name,u.email,u.status,u.created_at,p.* FROM users u LEFT JOIN teacher_profiles p ON p.user_id=u.id WHERE u.id=? AND u.role="teacher"');
+            $query = $this->pdo->prepare('SELECT u.id,u.name,u.email,u.role,u.status,u.created_at,p.phone,p.school_name,p.staff_id,p.national_id,p.birth_date,p.profile_photo_path,p.verification_status FROM users u LEFT JOIN teacher_profiles p ON p.user_id=u.id WHERE u.id=?');
             $query->execute([$id]);
             $teacher = $query->fetch();
-            if (!$teacher) $this->response->json(['error' => 'Teacher not found'], 404);
+            if (!$teacher) $this->response->json(['error' => 'User not found'], 404);
             $docs = $this->pdo->prepare('SELECT id,document_type,file_path,original_name,mime_type,size_bytes,created_at FROM teacher_documents WHERE user_id=?');
             $docs->execute([$id]);
             $teacher['documents'] = $docs->fetchAll();
+            $teacher['teacher_profile'] = array_intersect_key($teacher, array_flip(['phone', 'school_name', 'staff_id', 'national_id', 'birth_date', 'profile_photo_path', 'verification_status']));
             $this->response->json(['teacher' => $teacher]);
         }
+
         if (isset($payload['status']) && !in_array($payload['status'], ['pending', 'active', 'suspended'], true)) {
             $this->response->json(['error' => 'Invalid account status'], 422);
         }
-        $query = $this->pdo->prepare("UPDATE users SET name=COALESCE(?, name), status=COALESCE(?, status) WHERE id=? AND role='teacher'");
-        $query->execute([$payload['name'] ?? null, $payload['status'] ?? null, $id]);
+        $exists = $this->pdo->prepare('SELECT id FROM users WHERE id=?');
+        $exists->execute([$id]);
+        if (!$exists->fetchColumn()) {
+            $this->response->json(['error' => 'User not found'], 404);
+        }
+        if (isset($payload['status'])) {
+            $query = $this->pdo->prepare('UPDATE users SET status=? WHERE id=?');
+            $query->execute([$payload['status'], $id]);
+        }
+
+        $profileFields = ['phone', 'school_name', 'staff_id', 'national_id', 'birth_date'];
+        $updates = [];
+        $values = [];
+        foreach ($profileFields as $field) {
+            if (array_key_exists($field, $payload)) {
+                $updates[] = "{$field}=?";
+                $values[] = trim((string)$payload[$field]) ?: null;
+            }
+        }
+        if ($updates) {
+            $profile = $this->pdo->prepare('INSERT INTO teacher_profiles (user_id) VALUES (?) ON CONFLICT (user_id) DO NOTHING');
+            $profile->execute([$id]);
+            $values[] = $id;
+            $query = $this->pdo->prepare('UPDATE teacher_profiles SET ' . implode(', ', $updates) . ', updated_at=CURRENT_TIMESTAMP WHERE user_id=?');
+            $query->execute($values);
+        }
         $this->log((int)$user['id'], $id, 'teacher.updated', 'user', $id, $payload);
-        $this->response->json(['message' => 'Teacher account updated']);
+        $this->response->json(['message' => 'User account updated']);
+    }
+
+    public function teacherDocument(array $user, int $teacherId, int $documentId): never
+    {
+        $this->requireAdmin($user);
+        $query = $this->pdo->prepare('SELECT file_path, original_name FROM teacher_documents WHERE id=? AND user_id=?');
+        $query->execute([$documentId, $teacherId]);
+        $document = $query->fetch(PDO::FETCH_ASSOC);
+        if (!$document || !preg_match('~\Auploads/document/[a-f0-9]{48}\.(jpg|png|pdf)\z~D', (string)$document['file_path'], $match)) {
+            $this->response->json(['error' => 'Document not found'], 404);
+        }
+
+        $mimeType = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'pdf' => 'application/pdf'][$match[1]];
+        $path = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$document['file_path']);
+        if (!is_file($path)) {
+            $this->response->json(['error' => 'Document file not found'], 404);
+        }
+
+        $filename = preg_replace('/[^A-Za-z0-9._-]/', '_', basename((string)$document['original_name'])) ?: 'document';
+        header('Content-Type: ' . $mimeType);
+        header('Content-Length: ' . (string)filesize($path));
+        header('Content-Disposition: inline; filename="' . $filename . '"');
+        header('Cache-Control: private, no-store');
+        header('X-Content-Type-Options: nosniff');
+        readfile($path);
+        exit;
     }
 
     public function content(array $user, array $payload, string $method = 'PUT'): never
@@ -117,8 +216,13 @@ final class AdminController
         if ($method === 'GET') {
             $this->response->json(['content' => $this->pdo->query('SELECT page_key, content_key, content_value, updated_at FROM content ORDER BY page_key, content_key')->fetchAll()]);
         }
-        $this->content->update($payload['page_key'] ?? 'home', $payload['content'] ?? []);
-        $this->log((int)$user['id'], null, 'content.updated', 'content', null, ['page_key' => $payload['page_key'] ?? 'home']);
+        $pageKey = (string)($payload['page_key'] ?? 'home');
+        $previousContent = $this->content->page($pageKey);
+        $this->content->update($pageKey, $payload['content'] ?? []);
+        foreach (Upload::pathsInContent($previousContent) as $path) {
+            Upload::deleteIfUnreferenced($this->pdo, $path);
+        }
+        $this->log((int)$user['id'], null, 'content.updated', 'content', null, ['page_key' => $pageKey]);
         $this->response->json(['message' => 'Content updated']);
     }
 

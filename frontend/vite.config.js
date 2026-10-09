@@ -9,6 +9,7 @@ export default defineConfig({
     strictPort: false,
     cors: true,
     allowedHosts: [
+      ".uks1.devtunnels.ms/", // Allows ALL forwarded ports automatically
       ".ngrok-free.app" // Allows ALL ngrok-free subdomains automatically
     ],
     headers: {
@@ -17,13 +18,18 @@ export default defineConfig({
       "Access-Control-Allow-Headers": "X-Requested-With, content-type, Authorization"
     },
     proxy: {
-      "/api": {
-        // target: "http://localhost:8000", // Adjust this to your actual backend port
-        target: "https://a5da-154-163-129-192.ngrok-free.app/", // Adjust this to your actual backend port
+      proxy: {
+      '/api': {
+        target: 'http://localhost:8080', // Default fallback string
         changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ""),
-      },
+        rewrite: (path) => path.replace(/^\/api/, '') || '/',
+        router: (req) => {
+          // You can dynamically return a target string here
+          // If you want to strictly enforce the IPv4 IP address for stability:
+          return 'http://127.0.0.1:8080';
+        }
+      }
+    }
     },
   },
 });

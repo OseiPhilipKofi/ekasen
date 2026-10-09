@@ -106,7 +106,7 @@ export default function AdminPlansPage() {
                 display: "flex",
                 gap: "0.5rem",
                 marginTop: "1rem",
-                borderTop: "1px solid #eee",
+                borderTop: "1px solid var(--brand-line)",
                 paddingTop: "1rem",
               }}
             >

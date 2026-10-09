@@ -10,16 +10,21 @@ import {
   Trash2,
   Plus,
   X,
+  Phone,
+  WalletCards,
+  Building2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../lib/api";
 import { previewImage } from "../components/GlobalImagePreview";
+import ProfileAvatar, { profileImageUrl } from "../components/ProfileAvatar";
 import PageHeader from "../components/PageHeader";
 import AdminNav from "../components/AdminNav";
 
 export default function AdminContentPage() {
   const [activeTab, setActiveTab] = useState("hero");
   const [content, setContent] = useState({});
+  const [pageContent, setPageContent] = useState({});
   const [teachers, setTeachers] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [notice, setNotice] = useState({ user_id: "", title: "", message: "" });
@@ -43,10 +48,43 @@ export default function AdminContentPage() {
 
       const data = cRes.data.content || [];
       const map = {};
+      const pages = {};
       data.forEach((item) => {
-        map[item.content_key] = item.content_value;
+        if (item.page_key === "home") {
+          map[item.content_key] = item.content_value;
+        } else {
+          pages[item.page_key] ||= {};
+          pages[item.page_key][item.content_key] = item.content_value;
+        }
+      });
+      const sections = [
+        { name: "carousel", page: "carousel", key: "slides" },
+        { name: "workers", page: "workers", key: "team" },
+        { name: "faq", page: "faq", key: "items" },
+      ];
+      sections.forEach(({ name, page, key }) => {
+        const raw = map[name] ?? pages[page]?.[key];
+        if (raw === undefined) return;
+        try {
+          const list = Array.isArray(raw) ? raw : JSON.parse(raw);
+          if (!Array.isArray(list)) return;
+          const normalized = list.map((item) => {
+            if (!item || typeof item !== "object") return {};
+            if (name === "carousel") {
+              return { ...item, desc: item.desc ?? item.text ?? "" };
+            }
+            if (name === "faq") {
+              return { ...item, q: item.q ?? item.question ?? "", a: item.a ?? item.answer ?? "" };
+            }
+            return item;
+          });
+          map[name] = JSON.stringify(normalized);
+        } catch {
+          toast.error(`The saved ${name} section could not be read.`);
+        }
       });
       setContent(map);
+      setPageContent(pages);
       setTeachers(uRes.data.users || []);
       setNotifications(nRes.data.notifications || []);
     } catch (e) {
@@ -57,8 +95,18 @@ export default function AdminContentPage() {
   const saveGlobalContent = async (event) => {
     event.preventDefault();
     try {
-      await api.put("/admin/content", { page_key: "home", content: content });
-      toast.success("Hero content updated.");
+      const isContact = activeTab === "contact";
+      const contentToSave = isContact
+        ? pageContent.contact || {}
+        : content;
+      await api.put("/admin/content", {
+        page_key: isContact ? "contact" : "home",
+        content: contentToSave,
+      });
+      if (isContact) {
+        setPageContent((current) => ({ ...current, contact: contentToSave }));
+      }
+      toast.success(isContact ? "Contact details updated." : "Hero content updated.");
     } catch {
       toast.error("Content could not be saved.");
     }
@@ -90,14 +138,22 @@ export default function AdminContentPage() {
   };
 
   const updateValue = (key, val) => {
-    setContent({ ...content, [key]: val });
+    if (activeTab === "contact") {
+      setPageContent((current) => ({
+        ...current,
+        contact: { ...(current.contact || {}), [key]: val },
+      }));
+    } else {
+      setContent((current) => ({ ...current, [key]: val }));
+    }
   };
 
   const startEditing = (key, index = null) => {
+    const source = key === "services" ? pageContent.services || {} : content;
     const list =
-      typeof content[key] === "string"
-        ? JSON.parse(content[key])
-        : content[key] || [];
+      typeof source[key] === "string"
+        ? JSON.parse(source[key])
+        : source[key] || [];
     setEditingIndex(index);
     setEditFile(null);
     setFilePreview(null);
@@ -107,17 +163,20 @@ export default function AdminContentPage() {
       const defaults = {
         carousel: { image: "", title: "", desc: "" },
         workers: { name: "", role: "", img: "" },
+        sponsors: { name: "", description: "", image: "" },
         faq: { q: "", a: "" },
+        services: { title: "", description: "" },
       };
       setEditForm(defaults[key] || {});
     }
   };
 
   const saveItem = async (key) => {
+    const source = key === "services" ? pageContent.services || {} : content;
     const list =
-      typeof content[key] === "string"
-        ? JSON.parse(content[key])
-        : content[key] || [];
+      typeof source[key] === "string"
+        ? JSON.parse(source[key])
+        : source[key] || [];
     const updatedList = [...list];
 
     let finalItem = { ...editForm };
@@ -130,7 +189,7 @@ export default function AdminContentPage() {
           headers: { "Content-Type": "multipart/form-data" },
         });
         const imagePath = uploadRes.data.path;
-        const imageKey = key === "carousel" ? "image" : "img";
+        const imageKey = key === "carousel" || key === "sponsors" ? "image" : "img";
         finalItem[imageKey] = imagePath;
       } catch (e) {
         toast.error("Failed to upload image.");
@@ -144,13 +203,21 @@ export default function AdminContentPage() {
       updatedList.push(finalItem);
     }
 
-    const newContent = { ...content, [key]: JSON.stringify(updatedList) };
+    const serializedList = JSON.stringify(updatedList);
+    const newContent = { ...content, [key]: serializedList };
     try {
       await api.put("/admin/content", {
-        page_key: "home",
-        content: newContent,
+        page_key: key === "services" ? "services" : "home",
+        content: key === "services" ? { services: serializedList } : newContent,
       });
-      setContent(newContent);
+      if (key === "services") {
+        setPageContent((current) => ({
+          ...current,
+          services: { ...(current.services || {}), services: serializedList },
+        }));
+      } else {
+        setContent(newContent);
+      }
       setEditingIndex(null);
       setEditForm({});
       setEditFile(null);
@@ -163,18 +230,27 @@ export default function AdminContentPage() {
 
   const deleteItem = async (key, index) => {
     if (!window.confirm("Delete this item?")) return;
+    const source = key === "services" ? pageContent.services || {} : content;
     const list =
-      typeof content[key] === "string"
-        ? JSON.parse(content[key])
-        : content[key] || [];
+      typeof source[key] === "string"
+        ? JSON.parse(source[key])
+        : source[key] || [];
     const updatedList = list.filter((_, i) => i !== index);
-    const newContent = { ...content, [key]: JSON.stringify(updatedList) };
+    const serializedList = JSON.stringify(updatedList);
+    const newContent = { ...content, [key]: serializedList };
     try {
       await api.put("/admin/content", {
-        page_key: "home",
-        content: newContent,
+        page_key: key === "services" ? "services" : "home",
+        content: key === "services" ? { services: serializedList } : newContent,
       });
-      setContent(newContent);
+      if (key === "services") {
+        setPageContent((current) => ({
+          ...current,
+          services: { ...(current.services || {}), services: serializedList },
+        }));
+      } else {
+        setContent(newContent);
+      }
       toast.success("Item removed.");
     } catch {
       toast.error("Failed to remove item.");
@@ -210,10 +286,28 @@ export default function AdminContentPage() {
       keys: ["workers"],
     },
     {
+      id: "sponsors",
+      label: "Sponsors",
+      icon: <Building2 size={16} />,
+      keys: ["sponsors"],
+    },
+    {
       id: "faq",
       label: "FAQ",
       icon: <MessageCircle size={16} />,
       keys: ["faq"],
+    },
+    {
+      id: "services",
+      label: "Services",
+      icon: <WalletCards size={16} />,
+      keys: ["services"],
+    },
+    {
+      id: "contact",
+      label: "Contact",
+      icon: <Phone size={16} />,
+      keys: ["phone", "whatsapp", "email"],
     },
   ];
 
@@ -223,13 +317,10 @@ export default function AdminContentPage() {
       <PageHeader
         eyebrow="Admin · content studio"
         title="Manage public page sections."
-        description="Update homepage assets, team lists, and system-wide notifications."
+        description="Edit homepage slides, team and partner profiles, services, contact details, and notifications."
       />
 
-      <div
-        className="content-tabs"
-        style={{ display: "flex", gap: "0.5rem", marginBottom: "2rem" }}
-      >
+      <div className="content-tabs">
         {contentTabs.map((tab) => (
           <button
             type="button"
@@ -238,12 +329,6 @@ export default function AdminContentPage() {
             onClick={() => {
               setActiveTab(tab.id);
               setEditingIndex(null);
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.6rem 1.2rem",
             }}
           >
             {tab.icon} {tab.label}
@@ -256,18 +341,12 @@ export default function AdminContentPage() {
             setActiveTab("notifications");
             setEditingIndex(null);
           }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.6rem 1.2rem",
-          }}
         >
           <Bell size={16} /> Notifications
         </button>
       </div>
 
-      {activeTab === "hero" ? (
+      {activeTab === "hero" || activeTab === "contact" ? (
         <form
           className="form-card"
           onSubmit={saveGlobalContent}
@@ -281,12 +360,16 @@ export default function AdminContentPage() {
               marginBottom: "1.5rem",
             }}
           >
-            <h3 style={{ margin: 0 }}>Editing Hero Section</h3>
+            <h3 style={{ margin: 0 }}>
+              {activeTab === "contact" ? "Contact details" : "Editing Hero Section"}
+            </h3>
             <span style={{ fontSize: "0.8rem", opacity: 0.6 }}>
-              Main landing page text
+              {activeTab === "contact"
+                ? "Shown on the public contact page"
+                : "Main landing page text"}
             </span>
           </div>
-          {contentTabs[0].keys.map((key) => (
+          {(activeTab === "contact" ? contentTabs.find((tab) => tab.id === "contact").keys : contentTabs[0].keys).map((key) => (
             <label
               key={key}
               style={{ display: "block", marginBottom: "1.5rem" }}
@@ -307,27 +390,37 @@ export default function AdminContentPage() {
                     width: "100%",
                     padding: "0.6rem",
                     borderRadius: "0.4rem",
-                    border: "1px solid #ddd",
+                    border: "1px solid var(--brand-line)",
                   }}
-                  value={content[key] || ""}
+                  value={activeTab === "contact" ? pageContent.contact?.[key] || "" : content[key] || ""}
                   onChange={(event) => updateValue(key, event.target.value)}
                 />
               ) : (
                 <input
+                  type={key === "email" ? "email" : "text"}
+                  placeholder={
+                    activeTab === "contact"
+                      ? key === "whatsapp"
+                        ? "International format, e.g. 233XXXXXXXXX"
+                        : key === "phone"
+                          ? "+233 ..."
+                          : "contact@example.com"
+                      : undefined
+                  }
                   style={{
                     width: "100%",
                     padding: "0.6rem",
                     borderRadius: "0.4rem",
-                    border: "1px solid #ddd",
+                    border: "1px solid var(--brand-line)",
                   }}
-                  value={content[key] || ""}
+                  value={activeTab === "contact" ? pageContent.contact?.[key] || "" : content[key] || ""}
                   onChange={(event) => updateValue(key, event.target.value)}
                 />
               )}
             </label>
           ))}
           <button className="button primary" style={{ width: "200px" }}>
-            Save Changes
+            {activeTab === "contact" ? "Save contact details" : "Save Changes"}
           </button>
         </form>
       ) : activeTab === "notifications" ? (
@@ -362,7 +455,7 @@ export default function AdminContentPage() {
                   width: "100%",
                   padding: "0.6rem",
                   borderRadius: "0.4rem",
-                  border: "1px solid #ddd",
+                  border: "1px solid var(--brand-line)",
                 }}
               >
                 <option value="">-- Choose a teacher --</option>
@@ -385,7 +478,7 @@ export default function AdminContentPage() {
                   width: "100%",
                   padding: "0.6rem",
                   borderRadius: "0.4rem",
-                  border: "1px solid #ddd",
+                  border: "1px solid var(--brand-line)",
                 }}
               />
             </label>
@@ -402,7 +495,7 @@ export default function AdminContentPage() {
                   width: "100%",
                   padding: "0.6rem",
                   borderRadius: "0.4rem",
-                  border: "1px solid #ddd",
+                  border: "1px solid var(--brand-line)",
                 }}
               />
             </label>
@@ -465,23 +558,24 @@ export default function AdminContentPage() {
             className="list-pane"
             style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
           >
-            {/* <button className="button primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} onClick={() => startEditing(activeTab)}>
+            <button className="button primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} onClick={() => startEditing(activeTab)}>
               <Plus size={16} /> Add New {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-            </button> */}
+            </button>
             <div className="table-card" style={{ padding: "0" }}>
               {(() => {
                 const key = activeTab;
+                const source = key === "services" ? pageContent.services || {} : content;
                 const list =
-                  typeof content[key] === "string"
-                    ? JSON.parse(content[key])
-                    : content[key] || [];
+                  typeof source[key] === "string"
+                    ? JSON.parse(source[key])
+                    : source[key] || [];
                 return list.length ? (
                   list.map((item, i) => (
                     <div
                       key={i}
                       className="activity-row"
                       style={{
-                        borderBottom: "1px solid #eee",
+                        borderBottom: "1px solid var(--brand-line)",
                         cursor: "pointer",
                         padding: "1rem",
                       }}
@@ -499,7 +593,7 @@ export default function AdminContentPage() {
                           onClick={() =>
                             previewImage(
                               item.image || item.img
-                                ? `/api/${item.image || item.img}`
+                                ? profileImageUrl(item.image || item.img)
                                 : null,
                             )
                           }
@@ -509,36 +603,21 @@ export default function AdminContentPage() {
                             minWidth: "80px",
                             minHeight: "80px",
                             borderRadius: "50%",
-                            border: "2px dashed #ccc",
+                            border: "2px dashed var(--brand-line)",
                             overflow: "hidden",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            background: "#f9f9f9",
+                            background: "var(--brand-card-tint)",
                             cursor: "pointer",
                           }}
                         >
-                          {(
-                            item.image || item.img
-                              ? `/api/${item.image || item.img}`
-                              : null
-                          ) ? (
-                            <img
-                              src={
-                                item.image || item.img
-                                  ? `/api/${item.image || item.img}`
-                                  : null
-                              }
-                              alt="Preview"
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                              }}
-                            />
-                          ) : (
-                            <Image size={24} style={{ opacity: 0.3 }} />
-                          )}
+                          <ProfileAvatar
+                            src={item.image || item.img}
+                            alt={item.name || item.title || "Content image"}
+                            size={80}
+                            fallbackIcon={Image}
+                          />
                         </div>
                       </div>
                       <div style={{ flex: 1 }}>
@@ -547,6 +626,7 @@ export default function AdminContentPage() {
                         </strong>
                         <small style={{ display: "block", opacity: 0.6 }}>
                           {item.desc ||
+                            item.description ||
                             item.role ||
                             item.a?.substring(0, 30) + "..."}
                         </small>
@@ -638,7 +718,7 @@ export default function AdminContentPage() {
                             previewImage(
                               filePreview ||
                                 (editForm.image || editForm.img
-                                  ? `/api/${editForm.image || editForm.img}`
+                                  ? profileImageUrl(editForm.image || editForm.img)
                                   : null),
                             )
                           }
@@ -648,12 +728,12 @@ export default function AdminContentPage() {
                             minWidth: "80px",
                             minHeight: "80px",
                             borderRadius: "50%",
-                            border: "2px dashed #ccc",
+                            border: "2px dashed var(--brand-line)",
                             overflow: "hidden",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            background: "#f9f9f9",
+                            background: "var(--brand-card-tint)",
                             cursor: "pointer",
                           }}
                         >
@@ -668,7 +748,12 @@ export default function AdminContentPage() {
                               }}
                             />
                           ) : (
-                            <Image size={24} style={{ opacity: 0.3 }} />
+                            <ProfileAvatar
+                              src={editForm.image || editForm.img}
+                              alt="Current carousel image"
+                              size={80}
+                              fallbackIcon={Image}
+                            />
                           )}
                         </div>
                         <input
@@ -725,6 +810,16 @@ export default function AdminContentPage() {
                       />
                     </label>
                     <label>
+                      Short bio (optional)
+                      <textarea
+                        rows="3"
+                        value={editForm.bio || ""}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, bio: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
                       Worker Photo
                       <div
                         style={{
@@ -739,7 +834,7 @@ export default function AdminContentPage() {
                             previewImage(
                               filePreview ||
                                 (editForm.image || editForm.img
-                                  ? `/api/${editForm.image || editForm.img}`
+                                  ? profileImageUrl(editForm.image || editForm.img)
                                   : null),
                             )
                           }
@@ -749,12 +844,12 @@ export default function AdminContentPage() {
                             minWidth: "80px",
                             minHeight: "80px",
                             borderRadius: "50%",
-                            border: "2px dashed #ccc",
+                            border: "2px dashed var(--brand-line)",
                             overflow: "hidden",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            background: "#f9f9f9",
+                            background: "var(--brand-card-tint)",
                             cursor: "pointer",
                           }}
                         >
@@ -769,7 +864,12 @@ export default function AdminContentPage() {
                               }}
                             />
                           ) : (
-                            <Image size={24} style={{ opacity: 0.3 }} />
+                            <ProfileAvatar
+                              src={editForm.image || editForm.img}
+                              alt="Current worker image"
+                              size={80}
+                              fallbackIcon={Image}
+                            />
                           )}
                         </div>
                         <input
@@ -777,6 +877,69 @@ export default function AdminContentPage() {
                           accept="image/*"
                           onChange={handleFileChange}
                           style={{ fontSize: "0.8rem" }}
+                        />
+                      </div>
+                    </label>
+                  </>
+                )}
+
+                {activeTab === "sponsors" && (
+                  <>
+                    <label>
+                      Organization name
+                      <input
+                        required
+                        value={editForm.name || ""}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, name: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Relationship or contribution (optional)
+                      <textarea
+                        rows="3"
+                        value={editForm.description || ""}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            description: e.target.value,
+                          })
+                        }
+                      />
+                      <small>
+                        Add only organizations whose relationship with TiFund
+                        has been confirmed.
+                      </small>
+                    </label>
+                    <label>
+                      Organization logo or image (optional)
+                      <div className="cms-image-control">
+                        <div
+                          className="cms-image-preview"
+                          onClick={() =>
+                            previewImage(
+                              filePreview ||
+                                (editForm.image ? profileImageUrl(editForm.image) : null),
+                            )
+                          }
+                        >
+                          {filePreview ? (
+                            <img src={filePreview} alt="New sponsor image preview" />
+                          ) : (
+                            <ProfileAvatar
+                              src={editForm.image}
+                              alt="Current sponsor image"
+                              size={80}
+                              square
+                              fallbackIcon={Building2}
+                            />
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
                         />
                       </div>
                     </label>
@@ -803,6 +966,31 @@ export default function AdminContentPage() {
                         value={editForm.a || ""}
                         onChange={(e) =>
                           setEditForm({ ...editForm, a: e.target.value })
+                        }
+                      />
+                    </label>
+                  </>
+                )}
+                {activeTab === "services" && (
+                  <>
+                    <label>
+                      Service title
+                      <input
+                        required
+                        value={editForm.title || ""}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, title: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Description
+                      <textarea
+                        required
+                        rows="5"
+                        value={editForm.description || ""}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, description: e.target.value })
                         }
                       />
                     </label>

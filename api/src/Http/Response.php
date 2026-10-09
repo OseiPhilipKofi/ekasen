@@ -35,14 +35,16 @@ final class Response
         }
 
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-        $allowedStr = $_ENV['FRONTEND_URLS'] ?? ($_ENV['FRONTEND_URL'] ?? 'http://localhost:5173');
+        $allowedStr = $_ENV['FRONTEND_URLS'] ?? ($_ENV['FRONTEND_URL'] ?? 'http://localhost:5173,http://127.0.0.1:5173');
         $allowed = array_filter(array_map('trim', explode(',', $allowedStr)));
+        $localOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+        if (array_intersect($allowed, $localOrigins)) {
+            $allowed = array_values(array_unique(array_merge($allowed, $localOrigins)));
+        }
         $originHost = parse_url($origin, PHP_URL_HOST) ?? '';
 
         if (in_array($origin, $allowed, true) || str_ends_with($originHost, '.devtunnels.ms') || str_ends_with($originHost, ".ngrok-free.app")) {
             header('Access-Control-Allow-Origin: ' . $origin);
-        } else {
-            header('Access-Control-Allow-Origin: http://localhost:5173');
         }
 
         header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');

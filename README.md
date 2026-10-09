@@ -1,79 +1,37 @@
-# TiFund - Teacher Investment Fund Management System
+# TiFund - Teacher Investment Fund
 
-TiFund is a specialized investment fund management system designed for teachers in Ghana. It allows for secure teacher onboarding, contribution tracking, and dynamic content management.
+TiFund is a teacher-focused savings and investment management project for Ghana. It provides Google sign-in, teacher profiles, contribution records, dynamic public content, and protected administration tools.
 
-## 🚀 Local Startup
+## Local development
 
-TiFund runs as two local services: a Vite-powered React frontend and a custom PHP MVC API.
+### API (PHP and SQLite)
 
-### 1. Start the Frontend
+Enable `pdo_sqlite` and `curl`, install Composer dependencies from `api/`, and start the API:
+
+```powershell
+cd api
+composer install
+php -S 127.0.0.1:8000 -t .
+```
+
+The API creates `api/database/tifund.sqlite` and initializes the schema and default content automatically. Set `DB_PATH` in `api/.env` to select another SQLite file. Configure Google and Paystack server credentials in the API environment.
+
+### Frontend (React and Vite)
+
 ```powershell
 cd frontend
 npm install
 npm run dev
 ```
-Open **http://localhost:5173/** in the browser.
 
-### 2. Start the API
-With XAMPP/Apache, serve the project as `http://localhost/EKASEN/api` and set `frontend/.env`:
-```env
-VITE_API_URL=http://localhost/EKASEN/api
-```
-Alternatively, run from the `api` folder:
-```powershell
-php -S localhost:8000 -t .
-```
-Then set `VITE_API_URL=http://localhost:8000`.
+Configure `VITE_API_URL=http://127.0.0.1:8000`, the Google OAuth client ID, and the Paystack **public** key in `frontend/.env`. Do not put server secrets in frontend environment variables.
 
----
+## Core behavior
 
-## 🛠️ Technical Architecture
+- `/dashboard` renders a single role-specific dashboard; the welcome heading uses the signed-in user's first name.
+- Users and admins can edit non-Google profile details. Google-provided name/email stay read-only; staff IDs are editable only by admins, including for the admin's own profile.
+- Google sign-in reuses existing accounts and returns each account with its associated teacher profile.
+- Public services and contact information are managed from **Admin → Content**. Contact supports configured WhatsApp, phone, and email actions plus a custom message form.
+- The frontend theme is centrally configurable through global CSS custom properties in `frontend/src/style.css`.
 
-### Frontend
-- **React 19 & Vite**: Modern UI with fast HMR.
-- **Tailwind CSS**: Utility-first styling for a clean, professional look.
-- **Framer Motion**: Smooth animations for carousel and FAQ sections.
-- **Lucide-React**: Consistent iconography throughout the application.
-
-### Backend
-- **PHP (Custom MVC)**: Lightweight, high-performance API.
-- **MySQL**: Relational database for users, profiles, payments, and CMS content.
-- **PDO**: Secure database interactions with prepared statements.
-- **Google OAuth 2.0**: Secure identity verification for teachers.
-- **Paystack API**: Integration for seamless contribution payments.
-
-## 📂 Key Features
-
-### Admin Dashboard
-- **Teacher Onboarding**: Multipart form for registering teachers with professional details and identity document uploads.
-- **User Management**: Full CRUD for user accounts, role management, and account status control.
-- **CMS Studio**: Dynamic management of homepage Hero text, Carousel slides, Team/Worker cards, and FAQs.
-- **Payment Tracking**: Comprehensive view of all fund contributions across the system.
-- **Notifications**: Targeted notifications sent directly to specific teacher accounts.
-
-### User Experience
-- **Secure Account**: Google-based authentication with restricted profile updates (contact info and photos only).
-- **Investment Dashboard**: Real-time tracking of contributions and payment history.
-- **Plan Catalog**: Transparent view of available investment plans.
-
-## 📡 API Endpoints
-
-### Public
-- `GET /content/home`: Fetch all dynamic homepage content.
-- `POST /registration`: Public teacher registration request.
-- `POST /contact`: Submit contact messages.
-
-### Authenticated (Teacher)
-- `GET /account`: Retrieve profile and professional details.
-- `PUT /account`: Update contact phone and profile photo.
-- `GET /history`: Retrieve personal payment history.
-- `GET /notifications`: Fetch account notifications.
-
-### Admin Only
-- `GET /admin/users`: List all user accounts.
-- `POST /admin/teachers/register`: Admin-led teacher onboarding.
-- `GET/PUT/DELETE /admin/teachers/{id}`: Manage specific teacher profiles.
-- `GET/PUT /admin/content`: Manage site-wide CMS content.
-- `POST /admin/upload-cms`: Secure upload of CMS assets (images).
-- `POST /admin/notifications`: Send targeted notices.
-- `GET /admin/payments`: Track all system payments.
+See [api/README.md](api/README.md) and [frontend/README.md](frontend/README.md) for setup and route details. Switching from MySQL to SQLite creates a new SQLite file; it does not automatically import records from the previous database.

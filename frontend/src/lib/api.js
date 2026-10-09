@@ -16,11 +16,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => {
     window.dispatchEvent(new CustomEvent("app-loading", { detail: { loading: false } }));
-    console.log(response);
+    // console.log(response);
     return response;
   },
   (error) => {
-    console.log(error);
+    // console.log(error);
     window.dispatchEvent(new CustomEvent("app-loading", { detail: { loading: false } }));
     return Promise.reject(error);
   },

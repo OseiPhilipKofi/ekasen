@@ -23,7 +23,7 @@ export default function PlansPage({ user }) {
       <PageHeader
         eyebrow="Subscription plans"
         title="Choose a plan that works for you."
-        description="Review transparent contribution options in Ghana cedis. Payments are completed only inside your signed-in dashboard."
+        description="Review contribution options in Ghana cedis. Administrators can adjust these sample amounts and terms; payments are completed only inside your signed-in dashboard."
       />
 
       <div className="plans-grid">

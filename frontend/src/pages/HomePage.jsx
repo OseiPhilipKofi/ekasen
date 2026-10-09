@@ -13,12 +13,16 @@ import {
   ChevronDown,
   ChevronUp,
   MessageSquare,
+  Building2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Fuse from "fuse.js";
 import api from "../lib/api";
 import { fallbackContent } from "../data/fallback";
 import { useApiData } from "../hooks/useApiData";
+import { previewImage } from "../components/GlobalImagePreview";
+import ProfileAvatar, { profileImageUrl } from "../components/ProfileAvatar";
+import AutoSlider from "../components/AutoSlider";
 
 const features = [
   {
@@ -64,18 +68,18 @@ export default function HomePage() {
         return [
           {
             icon: "star",
-            title: "Excellent Service",
-            desc: "TiFund has helped me save consistently for my retirement.",
+            title: "Save with purpose",
+            desc: "Build a consistent contribution habit with a plan that fits your goals.",
           },
           {
             icon: "shield",
-            title: "Very Secure",
-            desc: "I feel safe knowing my identity documents are protected.",
+            title: "Clear payment records",
+            desc: "Review confirmed payment references and contribution history in one place.",
           },
           {
             icon: "zap",
-            title: "Great Interface",
-            desc: "The dashboard makes it so easy to track my contributions.",
+            title: "Member account support",
+            desc: "Keep your teaching and contact details current from your profile.",
           },
         ];
       }
@@ -94,6 +98,16 @@ export default function HomePage() {
       return [];
     }
   }, [content.workers]);
+
+  const sponsors = useMemo(() => {
+    try {
+      return typeof content.sponsors === "string"
+        ? JSON.parse(content.sponsors)
+        : content.sponsors || [];
+    } catch {
+      return [];
+    }
+  }, [content.sponsors]);
 
   const faqs = useMemo(() => {
     try {
@@ -143,9 +157,9 @@ export default function HomePage() {
           <div className="orbit orbit-two" />
           <div className="hero-card">
             <CircleDollarSign size={28} />
-            <span>Portfolio value</span>
-            <strong>GH₵ 24,580.00</strong>
-            <small>+12.8% this year</small>
+            <span>Member account</span>
+            <strong>Payment history</strong>
+            <small>Clear records at a glance</small>
           </div>
         </div>
       </section>
@@ -167,51 +181,40 @@ export default function HomePage() {
 
       {carousel.length > 0 && (
         <section className="section carousel-section">
-          <div
-            className="carousel-container"
-            style={{
-              overflowX: "auto",
-              WebkitOverflowScrolling: "touch",
-              position: "relative",
-              padding: "2rem 0",
-            }}
-          >
-            <motion.div
-              animate={{ x: 0 }}
-              className="carousel-track"
-              style={{ display: "flex", gap: "2rem", width: "max-content" }}
-            >
+          <div className="section-heading slider-heading">
+            <div>
+              <span className="eyebrow">Member priorities</span>
+              <h2>Designed around teachers.</h2>
+            </div>
+          </div>
+          <AutoSlider label="TiFund member benefits" className="benefit-slider">
               {carousel.map((slide, i) => (
-                <div
+                <motion.article
                   key={i}
                   className="carousel-slide"
-                  style={{
-                    width: "300px",
-                    background: "#f9f9f9",
-                    padding: "2rem 1.5rem",
-                    borderRadius: "1rem",
-                    border: "1px solid #eee",
-                    textAlign: "center",
-                  }}
+                  whileHover={{ y: -4 }}
                 >
-                  <div
-                    style={{
-                      marginBottom: "1rem",
-                      color: "#6366f1",
-                      display: "flex",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {getIcon(slide.icon || "message")}
+                  <div className="carousel-slide-media">
+                    <div className="carousel-slide-visual">
+                      <ProfileAvatar
+                        src={slide.image}
+                        alt={slide.title || "Service"}
+                        size={150}
+                        onClick={() => {
+                          const imageUrl = profileImageUrl(slide.image);
+                          if (imageUrl) previewImage(imageUrl);
+                        }}
+                      />
+                      <div className="carousel-slide-icon">
+                        {getIcon(slide.icon || "message")}
+                      </div>
+                    </div>
                   </div>
-                  <h3 style={{ marginBottom: "0.5rem" }}>{slide.title}</h3>
-                  <p style={{ fontSize: "0.9rem", opacity: 0.8 }}>
-                    {slide.desc}
-                  </p>
-                </div>
+                  <h3 className="carousel-slide-title">{slide.title}</h3>
+                  <p className="carousel-slide-description">{slide.desc}</p>
+                </motion.article>
               ))}
-            </motion.div>
-          </div>
+          </AutoSlider>
         </section>
       )}
 
@@ -253,74 +256,81 @@ export default function HomePage() {
 
       {workers.length > 0 && (
         <section className="section">
-          <div className="section-heading" style={{ textAlign: "center" }}>
+          <div className="section-heading centered-heading">
             <h2>Meet our team</h2>
             <p>Dedicated professionals managing your wealth.</p>
           </div>
-          <div
-            className="worker-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "2rem",
-              marginTop: "2rem",
-            }}
-          >
-            {workers.map((w, i) => (
-              <div
-                key={i}
-                className="worker-card"
-                style={{
-                  textAlign: "center",
-                  padding: "1rem",
-                  borderRadius: "1rem",
-                  border: "1px solid #eee",
-                }}
-              >
-                <img
-                  src={w.img ? `/api/${w.img}` : "/assets/avatar.png"}
-                  alt={w.name}
-                  style={{
-                    width: "100px",
-                    height: "100px",
-                    minWidth: "100px",
-                    minHeight: "100px",
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    marginBottom: "1rem",
-                  }}
-                />
-                <strong>{w.name}</strong>
-                <p style={{ fontSize: "0.9rem", opacity: 0.7 }}>{w.role}</p>
-              </div>
-            ))}
+          <div className="worker-grid">
+            <AutoSlider label="TiFund team" className="team-slider">
+              {workers.map((w, i) => (
+              <article key={i} className="carousel-slide worker-member-card">
+                <div className="carousel-slide-media">
+                  <div className="carousel-slide-visual">
+                    <ProfileAvatar
+                      src={w.img}
+                      alt={w.name || "Team member"}
+                      size={150}
+                      onClick={() => {
+                        const imageUrl = profileImageUrl(w.img);
+                        if (imageUrl) previewImage(imageUrl);
+                      }}
+                    />
+                  </div>
+                </div>
+                <strong className="worker-member-name">{w.name}</strong>
+                <p className="worker-member-description">{w.role}</p>
+                {w.bio && <p className="worker-member-bio">{w.bio}</p>}
+              </article>
+              ))}
+            </AutoSlider>
           </div>
+        </section>
+      )}
+
+      {sponsors.length > 0 && (
+        <section className="section sponsors-section">
+          <div className="section-heading centered-heading">
+            <span className="eyebrow">Our network</span>
+            <h2>Sponsors and partners</h2>
+            <p>Organizations supporting our work with teachers.</p>
+          </div>
+          <AutoSlider label="TiFund sponsors and partners" className="sponsor-slider">
+            {sponsors.map((sponsor, i) => (
+              <article className="sponsor-card" key={`${sponsor.name}-${i}`}>
+                <div className="sponsor-logo">
+                  {sponsor.image ? (
+                    <ProfileAvatar
+                      src={sponsor.image}
+                      alt={`${sponsor.name} logo`}
+                      size="100%"
+                      square
+                      fallbackIcon={Building2}
+                    />
+                  ) : (
+                    <Building2 size={32} aria-hidden="true" />
+                  )}
+                </div>
+                <div>
+                  <h3>{sponsor.name}</h3>
+                  {sponsor.description && <p>{sponsor.description}</p>}
+                </div>
+              </article>
+            ))}
+          </AutoSlider>
         </section>
       )}
 
       {faqs.length > 0 && (
         <section className="section">
-          <div className="section-heading" style={{ textAlign: "center" }}>
+          <div className="section-heading centered-heading">
             <h2>Frequently Asked Questions</h2>
           </div>
-          <div
-            className="faq-container"
-            style={{ maxWidth: "700px", margin: "2rem auto" }}
-          >
+          <div className="faq-container">
             {faqs.map((faq, i) => (
-              <div
-                key={i}
-                className="faq-item"
-                style={{ borderBottom: "1px solid #eee", padding: "1rem 0" }}
-              >
+              <div key={i} className="faq-item">
                 <div
                   onClick={() => setActiveFaq(activeFaq === i ? null : i)}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                  }}
+                  className="faq-item-trigger"
                 >
                   <span>{faq.q}</span>
                   {activeFaq === i ? (
@@ -335,11 +345,9 @@ export default function HomePage() {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      style={{ overflow: "hidden" }}
+                      className="faq-item-answer"
                     >
-                      <p style={{ marginTop: "0.5rem", opacity: 0.8 }}>
-                        {faq.a}
-                      </p>
+                      <p>{faq.a}</p>
                     </motion.div>
                   )}
                 </AnimatePresence>

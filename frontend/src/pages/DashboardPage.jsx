@@ -2,34 +2,45 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { useCallback } from "react";
 import api from "../lib/api";
-import { fallbackHistory } from "../data/fallback";
 import { useApiData } from "../hooks/useApiData";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import ActivityList from "../components/ActivityList";
 import PaymentWidget from "../components/PaymentWidget";
 
-export default function DashboardPage({ user }) {
+export default function DashboardPage({ user, embedded = false }) {
   const load = useCallback(
     () =>
       api
-        .get(`/history?email=${encodeURIComponent(user?.email || "")}`)
-        .then((res) =>
-          res.data.history?.length ? res.data.history : fallbackHistory,
-        ),
-    [user?.email],
+        .get("/history")
+        .then((res) => res.data.history || []),
+    [],
   );
-  const { data: history, setData: setHistory } = useApiData(
-    load,
-    fallbackHistory,
-  );
+  const { data: history, setData: setHistory } = useApiData(load, []);
   const reload = () => load().then(setHistory);
+  const successfulPayments = history.filter(
+    (payment) => String(payment.status).toLowerCase() === "success",
+  );
+  const totalContributions = successfulPayments.reduce(
+    (total, payment) => total + Number(payment.amount || 0),
+    0,
+  );
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const contributionsThisMonth = successfulPayments
+    .filter((payment) => String(payment.created_at || "").slice(0, 7) === currentMonth)
+    .reduce((total, payment) => total + Number(payment.amount || 0), 0);
+  const latestPlan = successfulPayments.find((payment) => payment.plan_name)?.plan_name;
+  const Wrapper = embedded ? "div" : "section";
 
   return (
-    <section className="section dashboard">
+    <Wrapper
+      className={embedded ? "member-dashboard-embed dashboard" : "section dashboard"}
+      id={embedded ? "my-member-dashboard" : undefined}
+    >
       <PageHeader
-        eyebrow="Member dashboard"
-        title={`Good to see you, ${user?.name?.split(" ")[0] || "teacher"}.`}
+        eyebrow={embedded ? "Your member account" : "Your account"}
+        title={`Welcome, ${user?.name?.trim().split(/\s+/)[0] || "teacher"}.`}
         action={
           <Link className="button secondary" to="/account">
             Manage account
@@ -39,20 +50,19 @@ export default function DashboardPage({ user }) {
 
       <div className="metrics">
         <StatCard
-          label="Total balance"
-          value="GH₵ 24,580.00"
-          note="+12.8% this year"
-          positive
+          label="Total contributions"
+          value={`GH₵ ${totalContributions.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          note="Confirmed payments in this account"
         />
         <StatCard
-          label="This month"
-          value="GH₵ 300.00"
-          note="Next payment · 28 Sep"
+          label="Contributions this month"
+          value={`GH₵ ${contributionsThisMonth.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          note="Confirmed payments this calendar month"
         />
         <StatCard
-          label="Plan"
-          value="Growth Builder"
-          note="Active since Jan 2026"
+          label="Most recent plan"
+          value={latestPlan || "No contributions yet"}
+          note="Based on your latest confirmed payment"
         />
       </div>
 
@@ -65,6 +75,6 @@ export default function DashboardPage({ user }) {
         </div>
         <ActivityList rows={history} />
       </div>
-    </section>
+    </Wrapper>
   );
 }
