@@ -112,7 +112,8 @@ final class Schema
                 subject TEXT,
                 message TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'unread',
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
             )",
             "CREATE TABLE IF NOT EXISTS notifications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,6 +141,8 @@ final class Schema
         $this->ensureColumn('identity_documents', 'size_bytes', 'INTEGER');
         $this->ensureColumn('contact_messages', 'phone', 'TEXT');
         $this->ensureColumn('contact_messages', 'subject', 'TEXT');
+        $this->ensureColumn('contact_messages', 'user_id', 'INTEGER REFERENCES users(id) ON DELETE SET NULL');
+        $this->linkLegacyContactMessages();
 
         $planSeed = $this->pdo->prepare("SELECT setting_value FROM app_settings WHERE setting_key = 'seed.plans.v2'");
         $planSeed->execute();
@@ -274,4 +277,42 @@ final class Schema
         }
         $this->pdo->exec("ALTER TABLE \"{$table}\" ADD COLUMN \"{$column}\" {$definition}");
     }
+
+    private function linkLegacyContactMessages(): void
+    {
+        $marker = $this->pdo->prepare("SELECT 1 FROM app_settings WHERE setting_key = 'migration.contact_messages.user_id.v1'");
+        $marker->execute();
+        if ($marker->fetchColumn() !== false) {
+            return;
+        }
+
+        $this->pdo->beginTransaction();
+        try {
+            $this->pdo->exec(
+                'UPDATE contact_messages
+                 SET user_id = (
+                     SELECT users.id FROM users
+                     WHERE lower(users.email) = lower(contact_messages.email)
+                     ORDER BY users.id
+                     LIMIT 1
+                 )
+                 WHERE user_id IS NULL
+                   AND EXISTS (
+                     SELECT 1 FROM users
+                     WHERE lower(users.email) = lower(contact_messages.email)
+                   )'
+            );
+            $saveMarker = $this->pdo->prepare(
+                "INSERT INTO app_settings (setting_key, setting_value) VALUES ('migration.contact_messages.user_id.v1', 'complete')"
+            );
+            $saveMarker->execute();
+            $this->pdo->commit();
+        } catch (\Throwable $error) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $error;
+        }
+    }
+
 }

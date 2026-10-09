@@ -1,14 +1,16 @@
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
-import { useCallback } from "react";
+import { MessageSquare } from "lucide-react";
+import { useCallback, useState } from "react";
 import api from "../lib/api";
 import { useApiData } from "../hooks/useApiData";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import ActivityList from "../components/ActivityList";
 import PaymentWidget from "../components/PaymentWidget";
+import ContactMessagesPanel from "../components/ContactMessagesPanel";
 
 export default function DashboardPage({ user, embedded = false }) {
+  const [activeTab, setActiveTab] = useState("overview");
   const load = useCallback(
     () =>
       api
@@ -48,6 +50,29 @@ export default function DashboardPage({ user, embedded = false }) {
         }
       />
 
+      <div className="dashboard-tabs" aria-label="Member dashboard sections">
+        <button
+          type="button"
+          aria-pressed={activeTab === "overview"}
+          className={activeTab === "overview" ? "is-active" : ""}
+          onClick={() => setActiveTab("overview")}
+        >
+          Overview
+        </button>
+        <button
+          type="button"
+          aria-pressed={activeTab === "messages"}
+          className={activeTab === "messages" ? "is-active" : ""}
+          onClick={() => setActiveTab("messages")}
+        >
+          <MessageSquare size={16} /> Messages
+        </button>
+      </div>
+
+      {activeTab === "messages" ? (
+        <ContactMessagesPanel user={user} />
+      ) : (
+        <>
       <div className="metrics">
         <StatCard
           label="Total contributions"
@@ -75,6 +100,8 @@ export default function DashboardPage({ user, embedded = false }) {
         </div>
         <ActivityList rows={history} />
       </div>
+        </>
+      )}
     </Wrapper>
   );
 }

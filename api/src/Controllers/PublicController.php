@@ -32,7 +32,7 @@ final class PublicController
         $this->response->json(['content' => $this->content->page($page)]);
     }
 
-    public function contact(array $payload): never
+    public function contact(array $payload, ?array $user = null): never
     {
         $name = trim((string)($payload['name'] ?? ''));
         $email = filter_var($payload['email'] ?? '', FILTER_VALIDATE_EMAIL);
@@ -40,13 +40,14 @@ final class PublicController
         if ($name === '' || !$email || $message === '') {
             $this->response->json(['error' => 'Name, email and message are required'], 422);
         }
-        $query = $this->pdo->prepare('INSERT INTO contact_messages (name, email, phone, subject, message) VALUES (?, ?, ?, ?, ?)');
+        $query = $this->pdo->prepare('INSERT INTO contact_messages (name, email, phone, subject, message, user_id) VALUES (?, ?, ?, ?, ?, ?)');
         $query->execute([
             $name,
             $email,
             trim((string)($payload['phone'] ?? '')) ?: null,
             trim((string)($payload['subject'] ?? '')) ?: null,
             $message,
+            $user ? (int)$user['id'] : null,
         ]);
         $this->response->json(['message' => 'Contact message received'], 201);
     }

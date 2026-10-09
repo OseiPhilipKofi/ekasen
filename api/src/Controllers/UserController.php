@@ -88,6 +88,18 @@ final class UserController
         $this->response->json(['activities' => $q->fetchAll()]);
     }
 
+    public function messages(array $user): never
+    {
+        $query = $this->pdo->prepare(
+            'SELECT id, name, email, phone, subject, message, status, created_at
+             FROM contact_messages
+             WHERE user_id = ?
+             ORDER BY created_at DESC, id DESC'
+        );
+        $query->execute([(int)$user['id']]);
+        $this->response->json(['messages' => $query->fetchAll()]);
+    }
+
     private function account(int $id): array
     {
         $query = $this->pdo->prepare('SELECT u.id,u.name,u.email,u.role,u.status,u.created_at,p.phone,p.school_name,p.staff_id,p.national_id,p.birth_date,p.profile_photo_path,p.verification_status FROM users u LEFT JOIN teacher_profiles p ON p.user_id=u.id WHERE u.id=?');

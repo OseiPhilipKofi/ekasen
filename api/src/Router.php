@@ -54,7 +54,15 @@ final class Router
         if ($route === 'plans' && $method === 'GET') $this->public->plans();
         if ($route === 'content/home' && $method === 'GET') $this->public->home();
         if (preg_match('#^content/(services|contact)$#', $route, $match) && $method === 'GET') $this->public->contentPage($match[1]);
-        if ($route === 'contact' && $method === 'POST') $this->public->contact($payload);
+        if ($route === 'contact' && $method === 'POST') {
+            $contactUser = null;
+            $contactToken = $this->request->bearerToken();
+            if ($contactToken !== '') {
+                $contactUser = $this->userRepository->findByToken($contactToken, $this->config->apiSecret());
+                if (!$contactUser) $this->response->json(['error' => 'Invalid session'], 401);
+            }
+            $this->public->contact($payload, $contactUser);
+        }
         if ($route === 'registration' && $method === 'POST') $this->public->registration($payload);
         if ($route === 'payments/webhook' && $method === 'POST') $this->payments->webhook($this->request);
 
@@ -64,6 +72,7 @@ final class Router
         if (!$user) $this->response->json(['error' => 'Invalid session'], 401);
         if ($route === 'history' && $method === 'GET') $this->payments->history((int)$user['id']);
         if ($route === 'account' && in_array($method, ['GET', 'PUT', 'POST', 'DELETE'], true)) $this->userController->profile($user, $method, $payload, $this->request->files());
+        if ($route === 'account/messages' && $method === 'GET') $this->userController->messages($user);
         if ($route === 'notifications' && $method === 'GET') $this->payments->notifications((int)$user['id']);
         if (preg_match('#^notifications/(\d+)/read$#', $route, $match) && $method === 'PUT') $this->payments->markNotification((int)$user['id'], (int)$match[1]);
         if ($route === 'payments/verify' && $method === 'POST') $this->payments->verify($payload, (int)$user['id']);
@@ -75,6 +84,7 @@ final class Router
         if (preg_match('#^admin/teachers/(\d+)$#', $route, $match) && in_array($method, ['GET', 'PUT', 'DELETE'], true)) $this->admin->teacher($user, (int)$match[1], $method, $payload);
         if ($route === 'admin/content' && in_array($method, ['GET', 'PUT', 'POST'], true)) $this->admin->content($user, $payload, $method === 'POST' ? 'PUT' : $method);
         if ($route === 'admin/messages' && $method === 'GET') $this->admin->messages($user);
+        if (preg_match('#^admin/messages/(\d+)/status$#', $route, $match) && $method === 'PUT') $this->admin->updateMessageStatus($user, (int)$match[1], $payload);
         if ($route === 'admin/notifications' && $method === 'POST') $this->admin->notify($user, $payload);
         if ($route === 'admin/notifications' && $method === 'GET') $this->admin->notifications($user);
         if ($route === 'admin/upload-cms' && $method === 'POST') $this->admin->uploadCmsAsset($user, $this->request->files());

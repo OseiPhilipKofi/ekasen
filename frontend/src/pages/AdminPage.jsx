@@ -1,13 +1,15 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Users, MessageSquare, WalletCards } from "lucide-react";
 import api from "../lib/api";
 import { useApiData } from "../hooks/useApiData";
 import PageHeader from "../components/PageHeader";
 import StatCard from "../components/StatCard";
 import AdminNav from "../components/AdminNav";
+import ContactMessagesPanel from "../components/ContactMessagesPanel";
 import DashboardPage from "./DashboardPage";
 
 export default function AdminPage({ user }) {
+  const [activeTab, setActiveTab] = useState("overview");
   const load = useCallback(
     () => api.get("/admin/teachers").then((res) => res.data.teachers || []),
     [],
@@ -17,7 +19,20 @@ export default function AdminPage({ user }) {
     [],
   );
   const { data: teachers } = useApiData(load, []);
-  const { data: summary } = useApiData(loadSummary, {});
+  const { data: summary, setData: setSummary } = useApiData(loadSummary, {});
+
+  useEffect(() => {
+    if (activeTab !== "overview" || window.location.hash !== "#my-member-dashboard") {
+      return undefined;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("my-member-dashboard")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTab]);
 
   return (
     <section className="section dashboard">
@@ -27,12 +42,53 @@ export default function AdminPage({ user }) {
         title="Administration overview"
         description="Review teachers, messages, content, notifications, and cashflow."
         action={
-          <a className="button secondary" href="#my-member-dashboard">
+          <a
+            className="button secondary"
+            href="#my-member-dashboard"
+            onClick={() => setActiveTab("overview")}
+          >
             My member dashboard
           </a>
         }
       />
 
+      <div className="dashboard-tabs" aria-label="Administration dashboard sections">
+        <button
+          type="button"
+          aria-pressed={activeTab === "overview"}
+          className={activeTab === "overview" ? "is-active" : ""}
+          onClick={() => setActiveTab("overview")}
+        >
+          Overview
+        </button>
+        <button
+          type="button"
+          aria-pressed={activeTab === "messages"}
+          className={activeTab === "messages" ? "is-active" : ""}
+          onClick={() => setActiveTab("messages")}
+        >
+          <MessageSquare size={16} /> Messages
+          {summary.messages > 0 && <span className="dashboard-tab-count">{summary.messages}</span>}
+        </button>
+      </div>
+
+      {activeTab === "messages" ? (
+        <ContactMessagesPanel
+          admin
+          user={user}
+          onStatusChange={(nextStatus) =>
+            setSummary((current) => ({
+              ...current,
+              messages: Math.max(
+                0,
+                Number(current.messages || 0) +
+                  (nextStatus === "unread" ? 1 : -1),
+              ),
+            }))
+          }
+        />
+      ) : (
+        <>
       <div className="metrics">
         <StatCard
           label="Registered teachers"
@@ -109,6 +165,8 @@ export default function AdminPage({ user }) {
       </div>
 
       <DashboardPage user={user} embedded />
+        </>
+      )}
     </section>
   );
 }

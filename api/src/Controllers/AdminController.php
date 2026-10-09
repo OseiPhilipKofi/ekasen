@@ -229,7 +229,37 @@ final class AdminController
     public function messages(array $user): never
     {
         $this->requireAdmin($user);
-        $this->response->json(['messages' => $this->pdo->query('SELECT * FROM contact_messages ORDER BY created_at DESC')->fetchAll()]);
+        $messages = $this->pdo->query(
+            'SELECT m.*, COALESCE(m.user_id, sender.id) AS sender_user_id,
+                    COALESCE(sender.name, m.name) AS sender_name,
+                    COALESCE(sender.email, m.email) AS sender_email,
+                    sender.role AS sender_role
+             FROM contact_messages m
+             LEFT JOIN users sender ON sender.id = m.user_id
+             ORDER BY m.created_at DESC, m.id DESC'
+        )->fetchAll();
+        $this->response->json(['messages' => $messages]);
+    }
+
+    public function updateMessageStatus(array $user, int $id, array $payload): never
+    {
+        $this->requireAdmin($user);
+        $status = $payload['status'] ?? null;
+        if (!in_array($status, ['read', 'unread'], true)) {
+            $this->response->json(['error' => 'Status must be read or unread'], 422);
+        }
+
+        $query = $this->pdo->prepare('UPDATE contact_messages SET status = ? WHERE id = ?');
+        $query->execute([$status, $id]);
+        if ($query->rowCount() === 0) {
+            $exists = $this->pdo->prepare('SELECT 1 FROM contact_messages WHERE id = ?');
+            $exists->execute([$id]);
+            if ($exists->fetchColumn() === false) {
+                $this->response->json(['error' => 'Message not found'], 404);
+            }
+        }
+
+        $this->response->json(['message' => 'Message status updated', 'status' => $status]);
     }
 
     public function notify(array $user, array $payload): never

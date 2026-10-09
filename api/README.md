@@ -33,12 +33,13 @@ The database file defaults to `api/database/tifund.sqlite`. Set `DB_PATH` in `ap
 - `GET /content/services`
 - `GET /content/contact`
 - `POST /registration`
-- `POST /contact` stores name, email, optional phone/subject, and message.
+- `POST /contact` stores name, email, optional phone/subject, and message. If a valid bearer token is supplied, the submission is associated with that account; anonymous submissions remain available to administrators only.
 - `POST /payments/webhook`
 
 ### Signed-in users
 
 - `GET/POST/PUT/DELETE /account` reads or updates contact and teacher-profile details. Google-managed name/email remain read-only. Only admins can change staff IDs.
+- `GET /account/messages` returns messages associated with the signed-in account. Existing messages are linked to matching account emails once during migration.
 - `GET /history`, `GET /notifications`, `PUT /notifications/{id}/read`
 - `POST /payments/verify`
 - `GET /activity`
@@ -50,7 +51,7 @@ The database file defaults to `api/database/tifund.sqlite`. Set `DB_PATH` in `ap
 - `GET /admin/teachers/{id}/documents/{document_id}` streams a teacher document to an administrator after verifying document ownership.
 - `POST /admin/teachers/register`
 - `GET/PUT /admin/content` manages homepage, services, and contact-page content.
-- `GET /admin/messages`, `POST /admin/notifications`
+- `GET /admin/messages` returns all messages with sender/account metadata for the grouped admin inbox; `PUT /admin/messages/{id}/status` marks a message `read` or `unread`; `POST /admin/notifications`
 - `GET /admin/activities`, `GET /admin/payments`, and `/admin/plans`
 
 User queries return account identity alongside the matching teacher profile. Google sign-in is idempotent: returning accounts and their profiles are reused rather than inserted again.
